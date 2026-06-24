@@ -1,0 +1,264 @@
+class_name Enemy
+extends Node3D
+
+signal hit_processed(result: Dictionary)
+signal reset_done
+
+# Zone -> Node3D (visual part)
+var zone_nodes: Dictionary = {}
+# Zone -> Area3D hitbox
+var hitbox_nodes: Dictionary = {}
+# Detached limb rigid bodies (spawned on sever)
+var detached_limbs: Array[RigidBody3D] = []
+
+var health: HealthComponent
+var is_ragdoll: bool = false
+var _original_transforms: Dictionary = {}
+
+const ZONE_COLORS := {
+	"head": Color(0.9, 0.7, 0.5),
+	"torso": Color(0.4, 0.5, 0.8),
+	"upper_arm_L": Color(0.5, 0.7, 0.4),
+	"upper_arm_R": Color(0.5, 0.7, 0.4),
+	"lower_arm_L": Color(0.4, 0.65, 0.35),
+	"lower_arm_R": Color(0.4, 0.65, 0.35),
+	"thigh_L": Color(0.35, 0.45, 0.7),
+	"thigh_R": Color(0.35, 0.45, 0.7),
+	"shin_L": Color(0.3, 0.4, 0.65),
+	"shin_R": Color(0.3, 0.4, 0.65),
+}
+
+func _ready() -> void:
+	health = HealthComponent.new()
+	add_child(health)
+	health.zone_severed.connect(_on_zone_severed)
+	health.died.connect(_on_died)
+	_build_body()
+
+func _build_body() -> void:
+	# Torso
+	_add_zone("torso", _box_mesh(Vector3(0.38, 0.48, 0.22), ZONE_COLORS["torso"]),
+		Vector3(0, 0.9, 0), _box_shape(Vector3(0.38, 0.48, 0.22)))
+
+	# Head
+	_add_zone("head", _sphere_mesh(0.16, ZONE_COLORS["head"]),
+		Vector3(0, 1.44, 0), _sphere_shape(0.17))
+
+	# Arms L
+	_add_zone("upper_arm_L", _capsule_mesh(0.075, 0.28, ZONE_COLORS["upper_arm_L"]),
+		Vector3(0.32, 1.0, 0), _capsule_shape(0.075, 0.28))
+	_add_zone("lower_arm_L", _capsule_mesh(0.06, 0.26, ZONE_COLORS["lower_arm_L"]),
+		Vector3(0.32, 0.66, 0), _capsule_shape(0.06, 0.26))
+
+	# Arms R
+	_add_zone("upper_arm_R", _capsule_mesh(0.075, 0.28, ZONE_COLORS["upper_arm_R"]),
+		Vector3(-0.32, 1.0, 0), _capsule_shape(0.075, 0.28))
+	_add_zone("lower_arm_R", _capsule_mesh(0.06, 0.26, ZONE_COLORS["lower_arm_R"]),
+		Vector3(-0.32, 0.66, 0), _capsule_shape(0.06, 0.26))
+
+	# Legs L
+	_add_zone("thigh_L", _capsule_mesh(0.09, 0.36, ZONE_COLORS["thigh_L"]),
+		Vector3(0.13, 0.48, 0), _capsule_shape(0.09, 0.36))
+	_add_zone("shin_L", _capsule_mesh(0.075, 0.32, ZONE_COLORS["shin_L"]),
+		Vector3(0.13, 0.11, 0), _capsule_shape(0.075, 0.32))
+
+	# Legs R
+	_add_zone("thigh_R", _capsule_mesh(0.09, 0.36, ZONE_COLORS["thigh_R"]),
+		Vector3(-0.13, 0.48, 0), _capsule_shape(0.09, 0.36))
+	_add_zone("shin_R", _capsule_mesh(0.075, 0.32, ZONE_COLORS["shin_R"]),
+		Vector3(-0.13, 0.11, 0), _capsule_shape(0.075, 0.32))
+
+	# Save original transforms
+	for zone in zone_nodes:
+		_original_transforms[zone] = zone_nodes[zone].transform
+
+func _add_zone(zone_name: String, mesh_inst: MeshInstance3D, pos: Vector3, col_shape: CollisionShape3D) -> void:
+	var pivot := Node3D.new()
+	pivot.name = zone_name
+	pivot.position = pos
+	add_child(pivot)
+	pivot.add_child(mesh_inst)
+
+	var area := Area3D.new()
+	area.name = zone_name + "_hitbox"
+	area.set_meta("zone", zone_name)
+	area.collision_layer = 2
+	area.collision_mask = 0
+	area.add_child(col_shape)
+	pivot.add_child(area)
+
+	zone_nodes[zone_name] = pivot
+	hitbox_nodes[zone_name] = area
+
+func _box_mesh(size: Vector3, color: Color) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	mi.mesh = bm
+	mi.material_override = _mat(color)
+	return mi
+
+func _sphere_mesh(r: float, color: Color) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = r
+	sm.height = r * 2
+	mi.mesh = sm
+	mi.material_override = _mat(color)
+	return mi
+
+func _capsule_mesh(r: float, h: float, color: Color) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var cm := CapsuleMesh.new()
+	cm.radius = r
+	cm.height = h
+	mi.mesh = cm
+	mi.material_override = _mat(color)
+	return mi
+
+func _mat(color: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	m.roughness = 0.8
+	return m
+
+func _box_shape(size: Vector3) -> CollisionShape3D:
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = size
+	cs.shape = bs
+	return cs
+
+func _sphere_shape(r: float) -> CollisionShape3D:
+	var cs := CollisionShape3D.new()
+	var sp := SphereShape3D.new()
+	sp.radius = r
+	cs.shape = sp
+	return cs
+
+func _capsule_shape(r: float, h: float) -> CollisionShape3D:
+	var cs := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = r
+	cap.height = h
+	cs.shape = cap
+	return cs
+
+func apply_hit(zone: String, shot_dir: Vector3, weapon: WeaponData) -> Dictionary:
+	var result := health.apply_damage(zone, weapon.damage, weapon.sever_power)
+	hit_processed.emit(result)
+	return result
+
+func apply_splash(hit_pos: Vector3, weapon: WeaponData) -> void:
+	var all_zones: Array = HealthComponent.ZONE_HP.keys()
+	for zone in all_zones:
+		if zone in health.severed_zones:
+			continue
+		var zone_node = zone_nodes.get(zone)
+		if zone_node == null:
+			continue
+		var dist: float = zone_node.global_position.distance_to(hit_pos)
+		if dist <= weapon.splash_radius:
+			var falloff: float = 1.0 - (dist / weapon.splash_radius)
+			var d: float = weapon.splash_damage * falloff
+			health.apply_damage(zone, d, weapon.sever_power)
+
+func _on_zone_severed(zone: String) -> void:
+	var node = zone_nodes.get(zone)
+	if node == null:
+		return
+
+	# Hide the zone and dependents
+	var to_hide := _get_dependent_zones(zone)
+	to_hide.append(zone)
+	for z in to_hide:
+		var zn = zone_nodes.get(z)
+		if zn:
+			zn.visible = false
+
+	# Spawn detached limb rigid body
+	var rb := _spawn_detached_limb(zone, node.global_position)
+	detached_limbs.append(rb)
+	get_parent().add_child(rb)
+
+func _get_dependent_zones(zone: String) -> Array:
+	var deps := {
+		"upper_arm_L": ["lower_arm_L"],
+		"upper_arm_R": ["lower_arm_R"],
+		"thigh_L": ["shin_L"],
+		"thigh_R": ["shin_R"],
+	}
+	return deps.get(zone, [])
+
+func _spawn_detached_limb(zone: String, pos: Vector3) -> RigidBody3D:
+	var rb := RigidBody3D.new()
+	rb.mass = 1.0
+	rb.gravity_scale = 2.0
+	rb.global_position = pos
+
+	var col := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.08
+	cap.height = 0.3
+	col.shape = cap
+	rb.add_child(col)
+
+	var mi := MeshInstance3D.new()
+	var cm := CapsuleMesh.new()
+	cm.radius = 0.08
+	cm.height = 0.3
+	mi.mesh = cm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = ZONE_COLORS.get(zone, Color.RED)
+	mat.roughness = 0.9
+	mi.material_override = mat
+	rb.add_child(mi)
+
+	return rb
+
+func impulse_limb(zone: String, direction: Vector3, force: float) -> void:
+	if detached_limbs.is_empty():
+		return
+	var rb := detached_limbs.back()
+	rb.apply_central_impulse(direction * force + Vector3(randf_range(-1,1), randf_range(0.5,1.5), randf_range(-1,1)))
+	rb.apply_torque_impulse(Vector3(randf_range(-4,4), randf_range(-4,4), randf_range(-4,4)))
+
+func _on_died(overkill: bool) -> void:
+	if overkill:
+		# Hide entire body; gibs handled by TestStand
+		visible = false
+	else:
+		# Simple ragdoll sim: tilt the body
+		is_ragdoll = true
+		_do_ragdoll_fall()
+
+func _do_ragdoll_fall() -> void:
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(self, "rotation:z", randf_range(1.2, 1.6) * sign(randf_range(-1, 1)), 0.4)
+	tween.tween_property(self, "position:y", -0.3, 0.4)
+
+func reset() -> void:
+	# Remove detached limbs
+	for rb in detached_limbs:
+		if is_instance_valid(rb):
+			rb.queue_free()
+	detached_limbs.clear()
+
+	# Restore visibility
+	for zone in zone_nodes:
+		zone_nodes[zone].visible = true
+
+	# Restore position/rotation
+	rotation = Vector3.ZERO
+	position = Vector3.ZERO
+	is_ragdoll = false
+
+	health.reset()
+	reset_done.emit()
+
+func get_all_hitbox_areas() -> Array[Area3D]:
+	var result: Array[Area3D] = []
+	for zone in hitbox_nodes:
+		result.append(hitbox_nodes[zone])
+	return result
