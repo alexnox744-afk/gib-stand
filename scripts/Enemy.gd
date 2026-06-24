@@ -170,7 +170,7 @@ func apply_splash(hit_pos: Vector3, weapon: WeaponData) -> void:
 	for zone in all_zones:
 		if zone in health.severed_zones:
 			continue
-		var zone_node = zone_nodes.get(zone)
+		var zone_node: Node3D = zone_nodes.get(zone)
 		if zone_node == null:
 			continue
 		var dist: float = zone_node.global_position.distance_to(hit_pos)
@@ -180,7 +180,7 @@ func apply_splash(hit_pos: Vector3, weapon: WeaponData) -> void:
 			health.apply_damage(zone, d, weapon.sever_power)
 
 func _on_zone_severed(zone: String) -> void:
-	var node = zone_nodes.get(zone)
+	var node: Node3D = zone_nodes.get(zone)
 	if node == null:
 		return
 
@@ -188,13 +188,13 @@ func _on_zone_severed(zone: String) -> void:
 	var to_hide := _get_dependent_zones(zone)
 	to_hide.append(zone)
 	for z in to_hide:
-		var zn = zone_nodes.get(z)
+		var zn: Node3D = zone_nodes.get(z)
 		if zn:
 			zn.visible = false
 		var hb: Area3D = hitbox_nodes.get(z)
 		if hb:
 			hb.collision_layer = 0
-		var dbg = hitbox_debug_nodes.get(z)
+		var dbg: MeshInstance3D = hitbox_debug_nodes.get(z)
 		if dbg:
 			dbg.visible = false
 

@@ -29,7 +29,7 @@ func play(sound_name: String) -> void:
 	entries.append({"label": label, "timer": FADE_TIME})
 
 	if entries.size() > MAX_ENTRIES:
-		var old = entries.pop_front()
+		var old: Dictionary = entries.pop_front()
 		if is_instance_valid(old["label"]):
 			old["label"].queue_free()
 

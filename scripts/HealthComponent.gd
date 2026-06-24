@@ -100,7 +100,7 @@ func apply_damage(zone: String, raw_damage: float, sever_power: float = 1.0) -> 
 	# Check sever
 	if zone in SEVERABLE and zone not in severed_zones:
 		var threshold: float = SEVER_THRESHOLD.get(zone, 9999.0)
-		var accumulated := ZONE_HP.get(zone, 0.0) - zone_hp[zone]
+		var accumulated: float = ZONE_HP.get(zone, 0.0) - zone_hp[zone]
 		if accumulated * sever_power >= threshold:
 			severed_zones.append(zone)
 			result["severed"] = true
