@@ -23,31 +23,41 @@ func _make_gib() -> RigidBody3D:
 	rb.mass = 0.5
 	rb.gravity_scale = 2.0
 
-	var shapes := [
-		_box_shape(Vector3(0.15, 0.1, 0.12)),
-		_box_shape(Vector3(0.2, 0.08, 0.15)),
-		_capsule_shape(0.06, 0.18),
-		_sphere_shape(0.09),
-	]
-	var shape_idx := randi() % shapes.size()
-	rb.add_child(shapes[shape_idx])
-
-	var mesh_inst := MeshInstance3D.new()
 	var colors := [Color(0.55, 0.07, 0.07), Color(0.45, 0.08, 0.06), Color(0.35, 0.05, 0.05)]
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = colors[randi() % colors.size()]
 	mat.roughness = 0.9
 
+	var mesh_inst := MeshInstance3D.new()
+	mesh_inst.material_override = mat
+
+	var shape_idx := randi() % 4
 	match shape_idx:
-		0, 1:
+		0:
+			var sz := Vector3(0.15, 0.1, 0.12)
+			rb.add_child(_box_shape(sz))
 			var bm := BoxMesh.new()
-			bm.size = shapes[shape_idx].get_child(0).shape.size if shapes[shape_idx] is CollisionShape3D else Vector3(0.15, 0.1, 0.12)
+			bm.size = sz
+			mesh_inst.mesh = bm
+		1:
+			var sz := Vector3(0.2, 0.08, 0.15)
+			rb.add_child(_box_shape(sz))
+			var bm := BoxMesh.new()
+			bm.size = sz
 			mesh_inst.mesh = bm
 		2:
-			mesh_inst.mesh = CapsuleMesh.new()
+			rb.add_child(_capsule_shape(0.06, 0.18))
+			var cm := CapsuleMesh.new()
+			cm.radius = 0.06
+			cm.height = 0.18
+			mesh_inst.mesh = cm
 		3:
-			mesh_inst.mesh = SphereMesh.new()
-	mesh_inst.material_override = mat
+			rb.add_child(_sphere_shape(0.09))
+			var sm := SphereMesh.new()
+			sm.radius = 0.09
+			sm.height = 0.18
+			mesh_inst.mesh = sm
+
 	rb.add_child(mesh_inst)
 	return rb
 

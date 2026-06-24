@@ -16,6 +16,7 @@ func _ready() -> void:
 	vbox.position = Vector2(-320, -260)
 	vbox.size = Vector2(300, 240)
 	vbox.alignment = BoxContainer.ALIGNMENT_END
+	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE  # never block shooting
 	add_child(vbox)
 
 func play(sound_name: String) -> void:
@@ -23,6 +24,7 @@ func play(sound_name: String) -> void:
 	label.text = "♪ " + sound_name
 	label.add_theme_color_override("font_color", Color(1, 0.85, 0.3))
 	label.add_theme_font_size_override("font_size", 13)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(label)
 	entries.append({"label": label, "timer": FADE_TIME})
 

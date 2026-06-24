@@ -12,8 +12,6 @@ var yaw: float = 0.0
 var pitch: float = 20.0
 var _orbiting: bool = false
 
-@onready var cam: Camera3D = $Camera3D
-
 func _ready() -> void:
 	_update_camera()
 

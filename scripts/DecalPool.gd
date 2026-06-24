@@ -5,15 +5,31 @@ const MAX_DECALS := 60
 
 var _pool: Array[Decal] = []
 var _active: Array[Decal] = []
-var _mat: StandardMaterial3D
+var _albedo: GradientTexture2D
 
 func _ready() -> void:
+	_albedo = _make_blob_texture()
 	_fill_pool()
+
+func _make_blob_texture() -> GradientTexture2D:
+	# Soft radial dark-red splat, generated so decals are visible without art.
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.45, 0.02, 0.02, 0.9))
+	grad.set_color(1, Color(0.4, 0.02, 0.02, 0.0))
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	tex.width = 64
+	tex.height = 64
+	return tex
 
 func _fill_pool() -> void:
 	for i in MAX_DECALS:
 		var d := Decal.new()
-		d.size = Vector3(0.3, 1.0, 0.3)
+		d.size = Vector3(0.3, 0.4, 0.3)
+		d.texture_albedo = _albedo
 		d.visible = false
 		add_child(d)
 		_pool.append(d)
@@ -25,15 +41,22 @@ func spawn(pos: Vector3, normal: Vector3) -> void:
 	else:
 		d = _pool.pop_back()
 
-	d.global_position = pos + normal * 0.01
-	var up := Vector3.UP
-	if abs(normal.dot(up)) > 0.99:
-		up = Vector3.RIGHT
-	d.look_at(pos + normal, up)
-	d.rotate_object_local(Vector3.UP, PI)
+	# Build a basis whose local +Y aligns with the surface normal,
+	# because a Decal projects along its local Y axis.
+	var y := normal.normalized()
+	var seed_axis := Vector3.RIGHT
+	if absf(y.dot(seed_axis)) > 0.99:
+		seed_axis = Vector3.FORWARD
+	var z := seed_axis.cross(y).normalized()
+	var x := y.cross(z).normalized()
+	var basis := Basis(x, y, z)
+	# Random spin around the normal for variety
+	basis = basis.rotated(y, randf() * TAU)
+
+	d.global_transform = Transform3D(basis, pos + y * 0.05)
 
 	var sz := randf_range(0.15, 0.4)
-	d.size = Vector3(sz, 1.0, sz)
+	d.size = Vector3(sz, 0.4, sz)
 	d.visible = true
 	_active.append(d)
 

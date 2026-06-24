@@ -8,12 +8,15 @@ signal reset_done
 var zone_nodes: Dictionary = {}
 # Zone -> Area3D hitbox
 var hitbox_nodes: Dictionary = {}
+# Zone -> MeshInstance3D translucent hitbox overlay (debug draw)
+var hitbox_debug_nodes: Dictionary = {}
 # Detached limb rigid bodies (spawned on sever)
 var detached_limbs: Array[RigidBody3D] = []
 
 var health: HealthComponent
 var is_ragdoll: bool = false
 var _original_transforms: Dictionary = {}
+var _ragdoll_tween: Tween
 
 const ZONE_COLORS := {
 	"head": Color(0.9, 0.7, 0.5),
@@ -87,8 +90,21 @@ func _add_zone(zone_name: String, mesh_inst: MeshInstance3D, pos: Vector3, col_s
 	area.add_child(col_shape)
 	pivot.add_child(area)
 
+	# Translucent debug overlay of the hitbox (hidden by default)
+	var dbg := MeshInstance3D.new()
+	dbg.mesh = mesh_inst.mesh
+	dbg.scale = Vector3(1.08, 1.08, 1.08)
+	var dbg_mat := StandardMaterial3D.new()
+	dbg_mat.albedo_color = Color(1.0, 0.1, 0.1, 0.35)
+	dbg_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dbg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dbg.material_override = dbg_mat
+	dbg.visible = false
+	pivot.add_child(dbg)
+
 	zone_nodes[zone_name] = pivot
 	hitbox_nodes[zone_name] = area
+	hitbox_debug_nodes[zone_name] = dbg
 
 func _box_mesh(size: Vector3, color: Color) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
@@ -168,18 +184,25 @@ func _on_zone_severed(zone: String) -> void:
 	if node == null:
 		return
 
-	# Hide the zone and dependents
+	# Hide the zone and dependents, disable their hitboxes
 	var to_hide := _get_dependent_zones(zone)
 	to_hide.append(zone)
 	for z in to_hide:
 		var zn = zone_nodes.get(z)
 		if zn:
 			zn.visible = false
+		var hb: Area3D = hitbox_nodes.get(z)
+		if hb:
+			hb.collision_layer = 0
+		var dbg = hitbox_debug_nodes.get(z)
+		if dbg:
+			dbg.visible = false
 
-	# Spawn detached limb rigid body
-	var rb := _spawn_detached_limb(zone, node.global_position)
-	detached_limbs.append(rb)
+	# Spawn detached limb rigid body (position only valid once in tree)
+	var rb := _spawn_detached_limb(zone)
 	get_parent().add_child(rb)
+	rb.global_position = node.global_position
+	detached_limbs.append(rb)
 
 func _get_dependent_zones(zone: String) -> Array:
 	var deps := {
@@ -190,11 +213,10 @@ func _get_dependent_zones(zone: String) -> Array:
 	}
 	return deps.get(zone, [])
 
-func _spawn_detached_limb(zone: String, pos: Vector3) -> RigidBody3D:
+func _spawn_detached_limb(zone: String) -> RigidBody3D:
 	var rb := RigidBody3D.new()
 	rb.mass = 1.0
 	rb.gravity_scale = 2.0
-	rb.global_position = pos
 
 	var col := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
@@ -233,25 +255,34 @@ func _on_died(overkill: bool) -> void:
 		_do_ragdoll_fall()
 
 func _do_ragdoll_fall() -> void:
-	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(self, "rotation:z", randf_range(1.2, 1.6) * sign(randf_range(-1, 1)), 0.4)
-	tween.tween_property(self, "position:y", -0.3, 0.4)
+	if _ragdoll_tween and _ragdoll_tween.is_running():
+		_ragdoll_tween.kill()
+	_ragdoll_tween = create_tween()
+	_ragdoll_tween.set_parallel(true)
+	_ragdoll_tween.tween_property(self, "rotation:z", randf_range(1.2, 1.6) * sign(randf_range(-1, 1)), 0.4)
+	_ragdoll_tween.tween_property(self, "position:y", -0.3, 0.4)
 
 func reset() -> void:
+	# Stop any in-flight ragdoll animation
+	if _ragdoll_tween and _ragdoll_tween.is_running():
+		_ragdoll_tween.kill()
+
 	# Remove detached limbs
 	for rb in detached_limbs:
 		if is_instance_valid(rb):
 			rb.queue_free()
 	detached_limbs.clear()
 
-	# Restore visibility
+	# Restore visibility and hitboxes
 	for zone in zone_nodes:
 		zone_nodes[zone].visible = true
+	for zone in hitbox_nodes:
+		hitbox_nodes[zone].collision_layer = 2
 
 	# Restore position/rotation
 	rotation = Vector3.ZERO
 	position = Vector3.ZERO
+	visible = true
 	is_ragdoll = false
 
 	health.reset()

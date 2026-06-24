@@ -23,9 +23,6 @@ var show_hitboxes: bool = false
 var enable_shake: bool = true
 var enable_decals: bool = true
 
-@onready var camera_pivot: Node3D = $OrbitCamera
-@onready var camera_node: Camera3D = $OrbitCamera/Camera3D
-
 func _ready() -> void:
 	_build_weapons()
 	_build_scene()
@@ -160,20 +157,19 @@ func _build_scene() -> void:
 	enemy = Enemy.new()
 	enemy.name = "Enemy"
 	pivot.add_child(enemy)
-	enemy.hit_processed.connect(_on_hit_processed)
 
 	# Orbit Camera
 	orbit_camera = OrbitCamera.new()
 	orbit_camera.name = "OrbitCamera"
 	orbit_camera.target = pivot
 	orbit_camera.distance = 4.0
-	add_child(orbit_camera)
 
 	var cam := Camera3D.new()
 	cam.name = "Camera3D"
 	cam.fov = 75
 	orbit_camera.add_child(cam)
-	orbit_camera._ready()
+
+	add_child(orbit_camera)
 
 	# Pools
 	gibs_pool = GibsPool.new()
@@ -198,12 +194,9 @@ func _build_ui() -> void:
 	ui.name = "UI"
 	add_child(ui)
 
-	var root_margin := MarginContainer.new()
-	root_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ui.add_child(root_margin)
-
 	var root_vb := VBoxContainer.new()
 	root_vb.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root_vb.mouse_filter = Control.MOUSE_FILTER_IGNORE  # let clicks reach the 3D viewport
 	ui.add_child(root_vb)
 
 	# Top bar: weapon selector
@@ -227,13 +220,15 @@ func _build_ui() -> void:
 	if not weapon_buttons.is_empty():
 		weapon_buttons[0].set_pressed_no_signal(true)
 
-	# Middle: spacer
+	# Middle: spacer (covers the enemy — must pass clicks through)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root_vb.add_child(spacer)
 
 	# Bottom row
 	var bottom_hb := HBoxContainer.new()
+	bottom_hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root_vb.add_child(bottom_hb)
 
 	# Hit info
@@ -243,6 +238,7 @@ func _build_ui() -> void:
 
 	var spacer2 := Control.new()
 	spacer2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bottom_hb.add_child(spacer2)
 
 	# Debug controls
@@ -311,14 +307,12 @@ func _do_shoot(mouse_pos: Vector2) -> void:
 			_splash_shot(mouse_pos, weapon)
 
 func _single_ray(mouse_pos: Vector2, weapon: WeaponData) -> void:
-	var cam := _get_camera()
 	var result := _raycast(mouse_pos)
 	if result.is_empty():
 		return
 	_process_single_hit(result, weapon)
 
 func _spread_rays(mouse_pos: Vector2, weapon: WeaponData) -> void:
-	var cam := _get_camera()
 	for i in weapon.pellet_count:
 		var spread := Vector2(
 			randf_range(-weapon.spread_angle, weapon.spread_angle),
@@ -345,8 +339,10 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 	else:
 		hit_pos = result["position"]
 		shot_dir = (result["position"] - cam.global_position).normalized()
-		# Direct hit first
+		# Direct hit first — may already gib (rocket), then we're done
 		_process_single_hit(result, weapon)
+		if enemy.health.is_dead:
+			return
 
 	# Splash
 	sound_log.play(weapon.impact_sound)
@@ -416,6 +412,8 @@ func _raycast(mouse_pos: Vector2) -> Dictionary:
 	var ray_dir := cam.project_ray_normal(mouse_pos)
 	var params := PhysicsRayQueryParameters3D.create(ray_origin, ray_origin + ray_dir * 100.0)
 	params.collision_mask = 2  # hitbox layer
+	params.collide_with_areas = true   # hitboxes are Area3D
+	params.collide_with_bodies = false # ignore platform/limbs
 	return space.intersect_ray(params)
 
 func _get_camera() -> Camera3D:
@@ -455,18 +453,13 @@ func _on_reset() -> void:
 	gibs_pool.clear_all()
 	decal_pool.clear_all()
 	hit_info_panel.update_hit({})
-	# Remove detached limbs that were added to scene
-	for child in get_children():
-		if child is RigidBody3D:
-			child.queue_free()
+	# Re-apply hitbox debug state to the restored body
+	_on_hitbox_toggle(show_hitboxes)
 
 func _on_hitbox_toggle(enabled: bool) -> void:
 	show_hitboxes = enabled
-	# Visualise hitboxes by toggling debug draw
-	# In Godot 4 we can use collision shape debug visibility
-	for zone in enemy.hitbox_nodes:
-		var area: Area3D = enemy.hitbox_nodes[zone]
-		area.visible = enabled
+	for zone in enemy.hitbox_debug_nodes:
+		enemy.hitbox_debug_nodes[zone].visible = enabled
 
 # ─────────────────────────────────────────────────────────────
 # PROCESS
