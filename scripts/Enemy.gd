@@ -241,7 +241,7 @@ func _spawn_detached_limb(zone: String) -> RigidBody3D:
 func impulse_limb(zone: String, direction: Vector3, force: float) -> void:
 	if detached_limbs.is_empty():
 		return
-	var rb := detached_limbs.back()
+	var rb: RigidBody3D = detached_limbs.back()
 	rb.apply_central_impulse(direction * force + Vector3(randf_range(-1,1), randf_range(0.5,1.5), randf_range(-1,1)))
 	rb.apply_torque_impulse(Vector3(randf_range(-4,4), randf_range(-4,4), randf_range(-4,4)))
 

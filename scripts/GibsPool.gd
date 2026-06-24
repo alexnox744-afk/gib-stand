@@ -119,7 +119,7 @@ func _process(delta: float) -> void:
 func _recycle_oldest() -> void:
 	if _active.is_empty():
 		return
-	var oldest = _active.pop_front()
+	var oldest: Dictionary = _active.pop_front()
 	var rb: RigidBody3D = oldest["rb"]
 	rb.freeze = true
 	rb.visible = false
