@@ -358,9 +358,10 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 	enemy.apply_splash(hit_pos, weapon)
 
 	if enemy.health.is_dead:
+		var body_center := enemy.global_position + Vector3(0, 0.9, 0)
 		_trigger_gibs(hit_pos, shot_dir, weapon)
-		_spawn_blood_burst(hit_pos + Vector3(0, 0.5, 0), shot_dir, 50)
-		_spawn_blood_cloud(hit_pos + Vector3(0, 0.8, 0), 0.6)
+		_spawn_blood_burst(body_center, shot_dir, 22)
+		_spawn_blood_cloud(body_center, 0.5)
 		return
 
 	_spawn_blood_burst(hit_pos + Vector3(0, 0.2, 0), Vector3.UP, 18)
@@ -389,9 +390,10 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 		enemy.health.died.emit(true)
 		sound_log.play(weapon.impact_sound)
 		sound_log.play("gib_explosion")
+		var body_center := enemy.global_position + Vector3(0, 0.9, 0)
 		_trigger_gibs(hit_pos, shot_dir, weapon)
-		_spawn_blood_burst(hit_pos + Vector3(0, 0.5, 0), shot_dir, 50)
-		_spawn_blood_cloud(hit_pos + Vector3(0, 0.8, 0), 0.6)
+		_spawn_blood_burst(body_center, shot_dir, 22)
+		_spawn_blood_cloud(body_center, 0.5)
 		hit_info_panel.update_hit({"zone": zone, "damage": weapon.damage, "zone_hp_before": 0,
 			"zone_hp_after": 0, "total_hp_before": enemy.health.max_hp, "total_hp_after": 0,
 			"severed": false, "died": true, "overkill": true})
@@ -413,9 +415,10 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 
 	if result.get("overkill", false):
 		sound_log.play("gib_explosion")
+		var body_center := enemy.global_position + Vector3(0, 0.9, 0)
 		_trigger_gibs(hit_pos, shot_dir, weapon)
-		_spawn_blood_burst(hit_pos + Vector3(0, 0.5, 0), shot_dir, 50)
-		_spawn_blood_cloud(hit_pos + Vector3(0, 0.8, 0), 0.6)
+		_spawn_blood_burst(body_center, shot_dir, 22)
+		_spawn_blood_cloud(body_center, 0.5)
 	elif result.get("died", false):
 		sound_log.play("zombie_death")
 		_spawn_blood_burst(hit_pos + Vector3(0, 0.3, 0), shot_dir, 28)
