@@ -17,7 +17,20 @@ var health: HealthComponent
 var is_ragdoll: bool = false
 var _original_transforms: Dictionary = {}
 var _ragdoll_tween: Tween
-var _body_mesh: MeshInstance3D
+var _glb_root: Node3D
+var _skeleton: Skeleton3D
+
+const ZONE_TO_BONE := {
+	"head":        "Neck",
+	"upper_arm_L": "UpperArm.L",
+	"lower_arm_L": "LowerArm.L",
+	"upper_arm_R": "UpperArm.R",
+	"lower_arm_R": "LowerArm.R",
+	"thigh_L":     "UpperLeg.L",
+	"shin_L":      "LowerLeg.L",
+	"thigh_R":     "UpperLeg.R",
+	"shin_R":      "LowerLeg.R",
+}
 
 const ZONE_COLORS := {
 	"head": Color(0.9, 0.7, 0.5),
@@ -79,17 +92,51 @@ func _build_body() -> void:
 	_attach_model()
 
 func _attach_model() -> void:
-	var obj_mesh: Mesh = load("res://models/Male.obj") as Mesh
-	if obj_mesh == null:
+	var packed: PackedScene = load("res://models/male.glb") as PackedScene
+	if packed == null:
 		return
-	_body_mesh = MeshInstance3D.new()
-	_body_mesh.mesh = obj_mesh
-	_body_mesh.scale = Vector3.ONE * 0.83
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.78, 0.62, 0.51)
-	mat.roughness = 0.85
-	_body_mesh.material_override = mat
-	add_child(_body_mesh)
+	var inst := packed.instantiate()
+	_glb_root = inst as Node3D
+	if _glb_root == null:
+		inst.queue_free()
+		return
+	_glb_root.scale = Vector3.ONE * 0.83
+	add_child(_glb_root)
+	_skeleton = _find_skeleton(_glb_root)
+	var skin_mat := StandardMaterial3D.new()
+	skin_mat.albedo_color = Color(0.78, 0.62, 0.51)
+	skin_mat.roughness = 0.85
+	_apply_material_recursive(_glb_root, skin_mat)
+
+func _find_skeleton(node: Node) -> Skeleton3D:
+	if node is Skeleton3D:
+		return node as Skeleton3D
+	for child in node.get_children():
+		var found := _find_skeleton(child)
+		if found != null:
+			return found
+	return null
+
+func _apply_material_recursive(node: Node, mat: StandardMaterial3D) -> void:
+	if node is MeshInstance3D:
+		(node as MeshInstance3D).material_override = mat
+	for child in node.get_children():
+		_apply_material_recursive(child, mat)
+
+func _collapse_bone(zone: String) -> void:
+	if _skeleton == null or not ZONE_TO_BONE.has(zone):
+		return
+	var bone_name: String = str(ZONE_TO_BONE[zone])
+	var bone_idx := _skeleton.find_bone(bone_name)
+	if bone_idx < 0:
+		return
+	_skeleton.set_bone_pose_scale(bone_idx, Vector3.ZERO)
+
+func _restore_all_bones() -> void:
+	if _skeleton == null:
+		return
+	for i in _skeleton.get_bone_count():
+		_skeleton.reset_bone_pose(i)
 
 func _add_zone(zone_name: String, mesh_inst: MeshInstance3D, pos: Vector3, col_shape: CollisionShape3D) -> void:
 	var pivot := Node3D.new()
@@ -214,6 +261,7 @@ func _on_zone_severed(zone: String) -> void:
 		var dbg: MeshInstance3D = hitbox_debug_nodes.get(z)
 		if dbg:
 			dbg.visible = false
+		_collapse_bone(z)
 
 	# Spawn detached limb rigid body (position only valid once in tree)
 	var rb := _spawn_detached_limb(zone)
@@ -290,11 +338,12 @@ func reset() -> void:
 			rb.queue_free()
 	detached_limbs.clear()
 
-	# Restore visibility and hitboxes
+	# Restore visibility, hitboxes, and skeleton pose
 	for zone in zone_nodes:
 		zone_nodes[zone].visible = true
 	for zone in hitbox_nodes:
 		hitbox_nodes[zone].collision_layer = 2
+	_restore_all_bones()
 
 	# Restore position/rotation
 	rotation = Vector3.ZERO
