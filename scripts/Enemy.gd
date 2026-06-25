@@ -32,6 +32,20 @@ const ZONE_TO_BONE := {
 	"shin_R":      "LowerLeg.R",
 }
 
+# Кость-якорь для позиционирования хитбокса каждой зоны
+const ZONE_ALIGN_BONE := {
+	"torso":       "Torso",
+	"head":        "Head",
+	"upper_arm_L": "UpperArm.L",
+	"lower_arm_L": "LowerArm.L",
+	"upper_arm_R": "UpperArm.R",
+	"lower_arm_R": "LowerArm.R",
+	"thigh_L":     "UpperLeg.L",
+	"shin_L":      "LowerLeg.L",
+	"thigh_R":     "UpperLeg.R",
+	"shin_R":      "LowerLeg.R",
+}
+
 const ZONE_COLORS := {
 	"head": Color(0.9, 0.7, 0.5),
 	"torso": Color(0.4, 0.5, 0.8),
@@ -107,6 +121,7 @@ func _attach_model() -> void:
 	skin_mat.albedo_color = Color(0.78, 0.62, 0.51)
 	skin_mat.roughness = 0.85
 	_apply_material_recursive(_glb_root, skin_mat)
+	_align_hitboxes_to_bones()
 
 func _find_skeleton(node: Node) -> Skeleton3D:
 	if node is Skeleton3D:
@@ -122,6 +137,22 @@ func _apply_material_recursive(node: Node, mat: StandardMaterial3D) -> void:
 		(node as MeshInstance3D).material_override = mat
 	for child in node.get_children():
 		_apply_material_recursive(child, mat)
+
+func _align_hitboxes_to_bones() -> void:
+	if _skeleton == null:
+		return
+	for zone in ZONE_ALIGN_BONE:
+		var bone_name: String = str(ZONE_ALIGN_BONE[zone])
+		var bone_idx := _skeleton.find_bone(bone_name)
+		if bone_idx < 0:
+			continue
+		# get_bone_global_pose возвращает позу в локальном пространстве Skeleton3D
+		var bone_local_pos := _skeleton.get_bone_global_pose(bone_idx).origin
+		var world_pos := _skeleton.to_global(bone_local_pos)
+		var enemy_local_pos := to_local(world_pos)
+		var zone_node: Node3D = zone_nodes.get(zone)
+		if zone_node:
+			zone_node.position = enemy_local_pos
 
 func _collapse_bone(zone: String) -> void:
 	if _skeleton == null or not ZONE_TO_BONE.has(zone):
