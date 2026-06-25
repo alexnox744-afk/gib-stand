@@ -476,28 +476,37 @@ func _camera_shake(strength: float) -> void:
 # ─────────────────────────────────────────────────────────────
 
 func _spawn_blood_burst(pos: Vector3, normal: Vector3, count: int) -> void:
-	var drop_mat := StandardMaterial3D.new()
-	drop_mat.albedo_color = Color(0.7, 0.05, 0.05)
-	drop_mat.roughness = 0.9
-	var drop_mesh := SphereMesh.new()
-	drop_mesh.radius = 0.025
-	drop_mesh.height = 0.05
-	drop_mesh.material = drop_mat
+	# Shared mesh + material for all drops in this burst
+	var shared_mat := StandardMaterial3D.new()
+	shared_mat.albedo_color = Color(0.72, 0.05, 0.05)
+	shared_mat.roughness = 0.9
+	var shared_mesh := SphereMesh.new()
+	shared_mesh.radius = 0.02
+	shared_mesh.height = 0.04
+	shared_mesh.material = shared_mat
 
-	var p := CPUParticles3D.new()
-	p.draw_pass_1 = drop_mesh
-	p.one_shot = true
-	p.explosiveness = 0.88
-	p.amount = count
-	p.lifetime = 0.6
-	p.direction = normal
-	p.spread = 60.0
-	p.initial_velocity_min = 2.0
-	p.initial_velocity_max = 6.0
-	p.gravity = Vector3(0, -8.0, 0)
-	add_child(p)
-	p.global_position = pos
-	get_tree().create_timer(p.lifetime + 0.5).timeout.connect(p.queue_free)
+	var spawn_count := mini(count, 22)
+	for _i in spawn_count:
+		var mi := MeshInstance3D.new()
+		mi.mesh = shared_mesh
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+		mi.global_position = pos
+
+		var spread_dir := (normal + Vector3(
+			randf_range(-1.3, 1.3),
+			randf_range(-0.2, 1.0),
+			randf_range(-1.3, 1.3)
+		)).normalized()
+		var speed := randf_range(1.5, 6.0)
+		var fly_time := randf_range(0.3, 0.6)
+		var end_pos := pos + spread_dir * speed * fly_time + Vector3(0, -5.0 * fly_time * fly_time, 0)
+
+		var tween := create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(mi, "global_position", end_pos, fly_time)
+		tween.tween_property(mi, "scale", Vector3.ZERO, fly_time * 0.45).set_delay(fly_time * 0.55)
+		get_tree().create_timer(fly_time + 0.1).timeout.connect(mi.queue_free)
 
 func _spawn_blood_cloud(pos: Vector3, radius: float) -> void:
 	var mi := MeshInstance3D.new()

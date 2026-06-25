@@ -49,11 +49,11 @@ func spawn(pos: Vector3, normal: Vector3) -> void:
 		seed_axis = Vector3.FORWARD
 	var z := seed_axis.cross(y).normalized()
 	var x := y.cross(z).normalized()
-	var basis := Basis(x, y, z)
+	var splat_basis := Basis(x, y, z)
 	# Random spin around the normal for variety
-	basis = basis.rotated(y, randf() * TAU)
+	splat_basis = splat_basis.rotated(y, randf() * TAU)
 
-	d.global_transform = Transform3D(basis, pos + y * 0.05)
+	d.global_transform = Transform3D(splat_basis, pos + y * 0.05)
 
 	var sz := randf_range(0.15, 0.4)
 	d.size = Vector3(sz, 0.4, sz)

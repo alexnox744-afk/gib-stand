@@ -160,7 +160,7 @@ func _capsule_shape(r: float, h: float) -> CollisionShape3D:
 	cs.shape = cap
 	return cs
 
-func apply_hit(zone: String, shot_dir: Vector3, weapon: WeaponData) -> Dictionary:
+func apply_hit(zone: String, _shot_dir: Vector3, weapon: WeaponData) -> Dictionary:
 	var result := health.apply_damage(zone, weapon.damage, weapon.sever_power)
 	hit_processed.emit(result)
 	return result
@@ -238,7 +238,7 @@ func _spawn_detached_limb(zone: String) -> RigidBody3D:
 
 	return rb
 
-func impulse_limb(zone: String, direction: Vector3, force: float) -> void:
+func impulse_limb(_zone: String, direction: Vector3, force: float) -> void:
 	if detached_limbs.is_empty():
 		return
 	var rb: RigidBody3D = detached_limbs.back()
