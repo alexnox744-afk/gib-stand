@@ -17,6 +17,7 @@ var health: HealthComponent
 var is_ragdoll: bool = false
 var _original_transforms: Dictionary = {}
 var _ragdoll_tween: Tween
+var _body_mesh: MeshInstance3D
 
 const ZONE_COLORS := {
 	"head": Color(0.9, 0.7, 0.5),
@@ -75,11 +76,27 @@ func _build_body() -> void:
 	for zone in zone_nodes:
 		_original_transforms[zone] = zone_nodes[zone].transform
 
+	_attach_model()
+
+func _attach_model() -> void:
+	var obj_mesh: Mesh = load("res://models/Male.obj") as Mesh
+	if obj_mesh == null:
+		return
+	_body_mesh = MeshInstance3D.new()
+	_body_mesh.mesh = obj_mesh
+	_body_mesh.scale = Vector3.ONE * 0.83
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.78, 0.62, 0.51)
+	mat.roughness = 0.85
+	_body_mesh.material_override = mat
+	add_child(_body_mesh)
+
 func _add_zone(zone_name: String, mesh_inst: MeshInstance3D, pos: Vector3, col_shape: CollisionShape3D) -> void:
 	var pivot := Node3D.new()
 	pivot.name = zone_name
 	pivot.position = pos
 	add_child(pivot)
+	mesh_inst.visible = false  # OBJ model is the visual; primitives are hitbox scaffolding only
 	pivot.add_child(mesh_inst)
 
 	var area := Area3D.new()
