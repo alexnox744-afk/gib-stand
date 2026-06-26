@@ -4,18 +4,17 @@ extends Node3D
 signal hit_processed(result: Dictionary)
 signal reset_done
 
-# Zone -> Node3D (visual part)
+# Zone -> PhysicalBone3D (позиция для спавна оторванных конечностей)
 var zone_nodes: Dictionary = {}
-# Zone -> Area3D hitbox
+# Zone -> Area3D hitbox (из сцены MaleBody.tscn)
 var hitbox_nodes: Dictionary = {}
-# Zone -> MeshInstance3D translucent hitbox overlay (debug draw)
+# Zone -> MeshInstance3D debug overlay
 var hitbox_debug_nodes: Dictionary = {}
 # Detached limb rigid bodies (spawned on sever)
 var detached_limbs: Array[RigidBody3D] = []
 
 var health: HealthComponent
 var is_ragdoll: bool = false
-var _original_transforms: Dictionary = {}
 var _glb_root: Node3D
 var _skeleton: Skeleton3D
 var _simulator: PhysicalBoneSimulator3D
@@ -31,8 +30,6 @@ const ZONE_TO_BONE := {
 	"thigh_R":     "UpperLeg.R",
 	"shin_R":      "LowerLeg.R",
 }
-
-# Кость-якорь для позиционирования хитбокса каждой зоны
 
 const ZONE_COLORS := {
 	"head": Color(0.9, 0.7, 0.5),
@@ -52,46 +49,8 @@ func _ready() -> void:
 	add_child(health)
 	health.zone_severed.connect(_on_zone_severed)
 	health.died.connect(_on_died)
-	_build_body()
-
-func _build_body() -> void:
-	# Torso
-	_add_zone("torso", _box_mesh(Vector3(0.38, 0.48, 0.22), ZONE_COLORS["torso"]),
-		Vector3(0, 0.9, 0), _box_shape(Vector3(0.38, 0.48, 0.22)))
-
-	# Head
-	_add_zone("head", _sphere_mesh(0.16, ZONE_COLORS["head"]),
-		Vector3(0, 1.44, 0), _sphere_shape(0.17))
-
-	# Arms L
-	_add_zone("upper_arm_L", _capsule_mesh(0.075, 0.28, ZONE_COLORS["upper_arm_L"]),
-		Vector3(0.32, 1.0, 0), _capsule_shape(0.075, 0.28))
-	_add_zone("lower_arm_L", _capsule_mesh(0.06, 0.26, ZONE_COLORS["lower_arm_L"]),
-		Vector3(0.32, 0.66, 0), _capsule_shape(0.06, 0.26))
-
-	# Arms R
-	_add_zone("upper_arm_R", _capsule_mesh(0.075, 0.28, ZONE_COLORS["upper_arm_R"]),
-		Vector3(-0.32, 1.0, 0), _capsule_shape(0.075, 0.28))
-	_add_zone("lower_arm_R", _capsule_mesh(0.06, 0.26, ZONE_COLORS["lower_arm_R"]),
-		Vector3(-0.32, 0.66, 0), _capsule_shape(0.06, 0.26))
-
-	# Legs L
-	_add_zone("thigh_L", _capsule_mesh(0.09, 0.36, ZONE_COLORS["thigh_L"]),
-		Vector3(0.13, 0.48, 0), _capsule_shape(0.09, 0.36))
-	_add_zone("shin_L", _capsule_mesh(0.075, 0.32, ZONE_COLORS["shin_L"]),
-		Vector3(0.13, 0.11, 0), _capsule_shape(0.075, 0.32))
-
-	# Legs R
-	_add_zone("thigh_R", _capsule_mesh(0.09, 0.36, ZONE_COLORS["thigh_R"]),
-		Vector3(-0.13, 0.48, 0), _capsule_shape(0.09, 0.36))
-	_add_zone("shin_R", _capsule_mesh(0.075, 0.32, ZONE_COLORS["shin_R"]),
-		Vector3(-0.13, 0.11, 0), _capsule_shape(0.075, 0.32))
-
-	# Save original transforms
-	for zone in zone_nodes:
-		_original_transforms[zone] = zone_nodes[zone].transform
-
 	_attach_model()
+	_collect_hitboxes_from_model()
 
 func _attach_model() -> void:
 	var packed: PackedScene = load("res://scenes/MaleBody.tscn") as PackedScene
@@ -110,6 +69,66 @@ func _attach_model() -> void:
 	skin_mat.albedo_color = Color(0.78, 0.62, 0.51)
 	skin_mat.roughness = 0.85
 	_apply_material_recursive(_glb_root, skin_mat)
+
+func _collect_hitboxes_from_model() -> void:
+	if _glb_root == null:
+		return
+	_scan_node_for_hitboxes(_glb_root)
+
+func _scan_node_for_hitboxes(node: Node) -> void:
+	if node is Area3D and node.has_meta("zone"):
+		var zone: String = str(node.get_meta("zone"))
+		var area := node as Area3D
+		area.collision_layer = 2
+		area.collision_mask = 0
+		hitbox_nodes[zone] = area
+		if node.get_parent() is Node3D:
+			zone_nodes[zone] = node.get_parent() as Node3D
+		var dbg := _make_debug_overlay(area)
+		if dbg != null:
+			area.add_child(dbg)
+			hitbox_debug_nodes[zone] = dbg
+	for child in node.get_children():
+		_scan_node_for_hitboxes(child)
+
+func _make_debug_overlay(area: Area3D) -> MeshInstance3D:
+	var cs: CollisionShape3D = null
+	for child in area.get_children():
+		if child is CollisionShape3D:
+			cs = child as CollisionShape3D
+			break
+	if cs == null or cs.shape == null:
+		return null
+	var dbg := MeshInstance3D.new()
+	var dbg_mat := StandardMaterial3D.new()
+	dbg_mat.albedo_color = Color(1.0, 0.1, 0.1, 0.35)
+	dbg_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dbg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dbg.material_override = dbg_mat
+	dbg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	dbg.visible = false
+	var shape := cs.shape
+	if shape is CapsuleShape3D:
+		var cap := shape as CapsuleShape3D
+		var m := CapsuleMesh.new()
+		m.radius = cap.radius
+		m.height = cap.height
+		dbg.mesh = m
+	elif shape is BoxShape3D:
+		var box := shape as BoxShape3D
+		var m := BoxMesh.new()
+		m.size = box.size
+		dbg.mesh = m
+	elif shape is SphereShape3D:
+		var sph := shape as SphereShape3D
+		var m := SphereMesh.new()
+		m.radius = sph.radius
+		m.height = sph.radius * 2.0
+		dbg.mesh = m
+	else:
+		return null
+	dbg.transform = cs.transform
+	return dbg
 
 func _find_simulator(node: Node) -> PhysicalBoneSimulator3D:
 	if node is PhysicalBoneSimulator3D:
@@ -150,92 +169,6 @@ func _restore_all_bones() -> void:
 	for i in _skeleton.get_bone_count():
 		_skeleton.reset_bone_pose(i)
 
-func _add_zone(zone_name: String, mesh_inst: MeshInstance3D, pos: Vector3, col_shape: CollisionShape3D) -> void:
-	var pivot := Node3D.new()
-	pivot.name = zone_name
-	pivot.position = pos
-	add_child(pivot)
-	mesh_inst.visible = false  # OBJ model is the visual; primitives are hitbox scaffolding only
-	pivot.add_child(mesh_inst)
-
-	var area := Area3D.new()
-	area.name = zone_name + "_hitbox"
-	area.set_meta("zone", zone_name)
-	area.collision_layer = 2
-	area.collision_mask = 0
-	area.add_child(col_shape)
-	pivot.add_child(area)
-
-	# Translucent debug overlay of the hitbox (hidden by default)
-	var dbg := MeshInstance3D.new()
-	dbg.mesh = mesh_inst.mesh
-	dbg.scale = Vector3(1.08, 1.08, 1.08)
-	var dbg_mat := StandardMaterial3D.new()
-	dbg_mat.albedo_color = Color(1.0, 0.1, 0.1, 0.35)
-	dbg_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	dbg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	dbg.material_override = dbg_mat
-	dbg.visible = false
-	pivot.add_child(dbg)
-
-	zone_nodes[zone_name] = pivot
-	hitbox_nodes[zone_name] = area
-	hitbox_debug_nodes[zone_name] = dbg
-
-func _box_mesh(size: Vector3, color: Color) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = size
-	mi.mesh = bm
-	mi.material_override = _mat(color)
-	return mi
-
-func _sphere_mesh(r: float, color: Color) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = r
-	sm.height = r * 2
-	mi.mesh = sm
-	mi.material_override = _mat(color)
-	return mi
-
-func _capsule_mesh(r: float, h: float, color: Color) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	var cm := CapsuleMesh.new()
-	cm.radius = r
-	cm.height = h
-	mi.mesh = cm
-	mi.material_override = _mat(color)
-	return mi
-
-func _mat(color: Color) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color
-	m.roughness = 0.8
-	return m
-
-func _box_shape(size: Vector3) -> CollisionShape3D:
-	var cs := CollisionShape3D.new()
-	var bs := BoxShape3D.new()
-	bs.size = size
-	cs.shape = bs
-	return cs
-
-func _sphere_shape(r: float) -> CollisionShape3D:
-	var cs := CollisionShape3D.new()
-	var sp := SphereShape3D.new()
-	sp.radius = r
-	cs.shape = sp
-	return cs
-
-func _capsule_shape(r: float, h: float) -> CollisionShape3D:
-	var cs := CollisionShape3D.new()
-	var cap := CapsuleShape3D.new()
-	cap.radius = r
-	cap.height = h
-	cs.shape = cap
-	return cs
-
 func apply_hit(zone: String, _shot_dir: Vector3, weapon: WeaponData) -> Dictionary:
 	var result := health.apply_damage(zone, weapon.damage, weapon.sever_power)
 	hit_processed.emit(result)
@@ -252,21 +185,16 @@ func apply_splash(hit_pos: Vector3, weapon: WeaponData) -> void:
 		var dist: float = zone_node.global_position.distance_to(hit_pos)
 		if dist <= weapon.splash_radius:
 			var falloff: float = 1.0 - (dist / weapon.splash_radius)
-			var d: float = weapon.splash_damage * falloff
-			health.apply_damage(zone, d, weapon.sever_power)
+			health.apply_damage(zone, weapon.splash_damage * falloff, weapon.sever_power)
 
 func _on_zone_severed(zone: String) -> void:
 	var node: Node3D = zone_nodes.get(zone)
 	if node == null:
 		return
 
-	# Hide the zone and dependents, disable their hitboxes
 	var to_hide := _get_dependent_zones(zone)
 	to_hide.append(zone)
 	for z in to_hide:
-		var zn: Node3D = zone_nodes.get(z)
-		if zn:
-			zn.visible = false
 		var hb: Area3D = hitbox_nodes.get(z)
 		if hb:
 			hb.collision_layer = 0
@@ -275,7 +203,6 @@ func _on_zone_severed(zone: String) -> void:
 			dbg.visible = false
 		_collapse_bone(z)
 
-	# Spawn detached limb rigid body (position only valid once in tree)
 	var rb := _spawn_detached_limb(zone)
 	get_parent().add_child(rb)
 	rb.global_position = node.global_position
@@ -324,10 +251,8 @@ func impulse_limb(_zone: String, direction: Vector3, force: float) -> void:
 
 func _on_died(overkill: bool) -> void:
 	if overkill:
-		# Hide entire body; gibs handled by TestStand
 		visible = false
 	else:
-		# Simple ragdoll sim: tilt the body
 		is_ragdoll = true
 		_do_ragdoll_fall()
 
@@ -340,20 +265,15 @@ func reset() -> void:
 	if _simulator != null and is_ragdoll:
 		_simulator.physical_bones_stop_simulation()
 
-	# Remove detached limbs
 	for rb in detached_limbs:
 		if is_instance_valid(rb):
 			rb.queue_free()
 	detached_limbs.clear()
 
-	# Restore visibility, hitboxes, and skeleton pose
-	for zone in zone_nodes:
-		zone_nodes[zone].visible = true
 	for zone in hitbox_nodes:
 		hitbox_nodes[zone].collision_layer = 2
 	_restore_all_bones()
 
-	# Restore position/rotation
 	rotation = Vector3.ZERO
 	position = Vector3.ZERO
 	visible = true
