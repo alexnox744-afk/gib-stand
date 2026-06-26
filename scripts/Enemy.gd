@@ -52,6 +52,16 @@ const ZONE_COLORS := {
 	"shin_R": Color(0.3, 0.4, 0.65),
 }
 
+# Кость сустава, на которой остаётся культя при отрыве зоны. Декаль среза
+# цепляется СЮДА, а не к самой оторванной кости (та схлопнута в точку).
+const STUMP_PARENT_ZONE := {
+	"head": "torso",
+	"upper_arm_L": "torso", "upper_arm_R": "torso",
+	"lower_arm_L": "upper_arm_L", "lower_arm_R": "upper_arm_R",
+	"thigh_L": "torso", "thigh_R": "torso",
+	"shin_L": "thigh_L", "shin_R": "thigh_R",
+}
+
 func _ready() -> void:
 	health = HealthComponent.new()
 	add_child(health)
@@ -298,6 +308,12 @@ func _get_dependent_zones(zone: String) -> Array:
 		"thigh_R": ["shin_R"],
 	}
 	return deps.get(zone, [])
+
+# BoneAttachment3D кости сустава, на которой держится культя зоны (для декали
+# среза, которая должна ехать за телом и в стойке, и в регдоле).
+func get_stump_attachment(zone: String) -> Node3D:
+	var parent_zone: String = str(STUMP_PARENT_ZONE.get(zone, "torso"))
+	return zone_nodes.get(parent_zone) as Node3D
 
 func _spawn_detached_limb(zone: String) -> DetachedLimb:
 	var rb := DetachedLimb.new()

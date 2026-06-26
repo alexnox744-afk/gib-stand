@@ -31,6 +31,8 @@ var _lmb_held: bool = false
 var _last_mouse_pos: Vector2 = Vector2.ZERO
 var _fire_timer: float = 0.0
 var _bleed_timer: float = 0.0   # тик порций крови из культей, пока враг истекает
+var _bleed_elapsed: float = 0.0 # сколько уже длится кровотечение (для роста лужи)
+var _pool_timer: float = 0.0    # тик пятен растущей лужи на полу
 
 func _ready() -> void:
 	_build_weapons()
@@ -437,6 +439,7 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 				_spawn_blood_burst(hit_pos, shot_dir, 22)
 				_spawn_blood_cloud(hit_pos, 0.2)
 				if enable_decals:
+					_spawn_stump_decal(zone)
 					# Кость отрыва схлопнута в точку — декали оставляем в мире.
 					for i in 3:
 						decal_pool.spawn(
@@ -461,6 +464,7 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 		_spawn_blood_burst(hit_pos, shot_dir, 22)
 		_spawn_blood_cloud(hit_pos, 0.2)
 		if enable_decals:
+			_spawn_stump_decal(zone)
 			for i in 3:
 				# No bone_target: severed bone is already collapsed to scale 0.001,
 				# a child decal would inherit that scale and become invisible.
@@ -698,16 +702,25 @@ func _spawn_blood_cloud(pos: Vector3, radius: float) -> void:
 # порций растёт с общим bleed_rate, объём из каждой культи — с её вкладом в
 # SEVER_BLEED (голова хлещет фонтаном, рука капает).
 func _update_stump_bleeding(delta: float) -> void:
-	if enemy == null or enemy.health.is_dead:
+	if enemy == null or enemy.health.is_dead or enemy.health.bleed_rate <= 0.0:
+		_bleed_elapsed = 0.0
 		return
+	_bleed_elapsed += delta
 	var rate_total: float = enemy.health.bleed_rate
-	if rate_total <= 0.0:
-		return
-	_bleed_timer -= delta
-	if _bleed_timer > 0.0:
-		return
-	_bleed_timer = clampf(6.0 / rate_total, 0.08, 0.35)
 	var body_center := enemy.global_position + Vector3(0, 0.9, 0)
+
+	_bleed_timer -= delta
+	var do_spurt := _bleed_timer <= 0.0
+	if do_spurt:
+		_bleed_timer = clampf(6.0 / rate_total, 0.08, 0.35)
+
+	_pool_timer -= delta
+	var do_pool := enable_decals and _pool_timer <= 0.0
+	if do_pool:
+		_pool_timer = 0.35
+	# Лужа растёт со временем кровотечения: от пятна до большой за ~3с.
+	var pool_size := lerpf(0.15, 0.5, clampf(_bleed_elapsed / 3.0, 0.0, 1.0))
+
 	for zone in enemy.health.severed_zones:
 		var rate := float(HealthComponent.SEVER_BLEED.get(zone, 0.0))
 		if rate <= 0.0:
@@ -715,12 +728,30 @@ func _update_stump_bleeding(delta: float) -> void:
 		var stump: Node3D = enemy.zone_nodes.get(zone)
 		if stump == null:
 			continue
-		# Направление струи — наружу от тела + вверх (фонтан из обрубка).
-		var out := stump.global_position - body_center
-		out.y = 0.0
-		var dir := out.normalized() + Vector3.UP * 1.5
-		var n := clampi(roundi(rate / 30.0), 1, 4)   # голова ~3, рука ~1
-		_spawn_blood_burst(stump.global_position, dir, n)
+		var sp := stump.global_position
+		if do_spurt:
+			# Направление струи — наружу от тела + вверх (фонтан из обрубка).
+			var out := sp - body_center
+			out.y = 0.0
+			var dir := out.normalized() + Vector3.UP * 1.5
+			var n := clampi(roundi(rate / 30.0), 1, 4)   # голова ~3, рука ~1
+			_spawn_blood_burst(sp, dir, n)
+		if do_pool:
+			# Накопительное пятно на полу прямо под культёй (в мире, не привязано).
+			decal_pool.spawn(Vector3(sp.x, 0.02, sp.z), Vector3.UP, null, pool_size)
+
+# Декаль на срезе культи: на месте отрыва, привязана к кости сустава (едет за
+# телом). Нормаль смотрит наружу от центра тела, чтобы лечь на срез.
+func _spawn_stump_decal(zone: String) -> void:
+	var stump := enemy.get_stump_attachment(zone)
+	var src: Node3D = enemy.zone_nodes.get(zone) as Node3D
+	if stump == null or src == null:
+		return
+	var pos := src.global_position
+	var nrm := pos - (enemy.global_position + Vector3(0, 0.9, 0))
+	if nrm.length() < 0.001:
+		nrm = Vector3.UP
+	decal_pool.spawn(pos, nrm.normalized(), stump, 0.28)
 
 # ─────────────────────────────────────────────────────────────
 # UI CALLBACKS
