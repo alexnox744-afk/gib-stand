@@ -159,7 +159,8 @@ func _build_scene() -> void:
 	pivot.name = "EnemyPivot"
 	add_child(pivot)
 
-	enemy = Enemy.new()
+	var enemy_scene := preload("res://scenes/Enemy.tscn")
+	enemy = enemy_scene.instantiate() as Enemy
 	enemy.name = "Enemy"
 	pivot.add_child(enemy)
 
@@ -167,6 +168,7 @@ func _build_scene() -> void:
 	orbit_camera.name = "OrbitCamera"
 	orbit_camera.target = pivot
 	orbit_camera.distance = 4.0
+	orbit_camera.pitch = 30.0
 
 	var cam := Camera3D.new()
 	cam.name = "Camera3D"
