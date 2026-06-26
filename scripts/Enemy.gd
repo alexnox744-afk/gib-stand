@@ -276,22 +276,22 @@ func _get_dependent_zones(zone: String) -> Array:
 	}
 	return deps.get(zone, [])
 
-func _spawn_detached_limb(zone: String) -> RigidBody3D:
-	var rb := RigidBody3D.new()
+func _spawn_detached_limb(zone: String) -> DetachedLimb:
+	var rb := DetachedLimb.new()
 	rb.mass = 1.0
 	rb.gravity_scale = 2.0
 
 	var col := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
-	cap.radius = 0.08
-	cap.height = 0.3
+	cap.radius = DetachedLimb.CAP_RADIUS
+	cap.height = DetachedLimb.CAP_HEIGHT
 	col.shape = cap
 	rb.add_child(col)
 
 	var mi := MeshInstance3D.new()
 	var cm := CapsuleMesh.new()
-	cm.radius = 0.08
-	cm.height = 0.3
+	cm.radius = DetachedLimb.CAP_RADIUS
+	cm.height = DetachedLimb.CAP_HEIGHT
 	mi.mesh = cm
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = ZONE_COLORS.get(zone, Color.RED)
@@ -299,7 +299,16 @@ func _spawn_detached_limb(zone: String) -> RigidBody3D:
 	mi.material_override = mat
 	rb.add_child(mi)
 
+	# Хитбокс на слое 2 — теперь по лежащей конечности можно стрелять.
+	rb.setup_hitbox()
+
 	return rb
+
+# Конечность перемолота в гибы — убираем её из списка и сцены.
+func remove_detached_limb(limb: RigidBody3D) -> void:
+	detached_limbs.erase(limb)
+	if is_instance_valid(limb):
+		limb.queue_free()
 
 func impulse_limb(_zone: String, direction: Vector3, force: float) -> void:
 	if detached_limbs.is_empty():

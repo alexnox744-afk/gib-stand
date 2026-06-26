@@ -311,8 +311,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func _do_shoot(mouse_pos: Vector2) -> void:
 	if enemy == null:
 		return
-	# Allow shooting dead ragdoll for blood; skip gibs/invisible state
-	if enemy.health.is_dead and not enemy.is_ragdoll:
+	# Allow shooting dead ragdoll for blood, and lone detached limbs even after
+	# the body itself is gone (e.g. gibbed by overkill).
+	if enemy.health.is_dead and not enemy.is_ragdoll and enemy.detached_limbs.is_empty():
 		return
 
 	var cam: Camera3D = _get_camera()
@@ -370,6 +371,7 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 	var hp_before: float = enemy.health.current_hp
 	var was_dead: bool = enemy.health.is_dead
 	enemy.apply_splash(blast_pos, weapon)
+	_splash_detached_limbs(blast_pos, weapon)   # взрыв разносит и лежащие части
 	if was_dead:
 		return
 
@@ -394,7 +396,13 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 
 func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void:
 	var area: Area3D = raycast_result.get("collider")
-	if area == null or not area.has_meta("zone"):
+	if area == null:
+		return
+	# Попали по лежащей оторванной конечности — толкаем/перемалываем.
+	if area.has_meta("detached_limb"):
+		_hit_detached_limb(area, raycast_result, weapon)
+		return
+	if not area.has_meta("zone"):
 		return
 
 	var zone: String = area.get_meta("zone")
@@ -472,6 +480,48 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 
 	if enable_shake and (result.get("overkill") or result.get("severed")):
 		_camera_shake(0.15)
+
+# Прямое попадание по оторванной конечности: толчок, а на исчерпании
+# целостности — перемол в гибы.
+func _hit_detached_limb(area: Area3D, raycast_result: Dictionary, weapon: WeaponData) -> void:
+	var limb := area.get_parent() as DetachedLimb
+	if limb == null:
+		return
+	var hit_pos: Vector3 = raycast_result["position"]
+	var hit_normal: Vector3 = raycast_result["normal"]
+	var cam := _get_camera()
+	var shot_dir := (hit_pos - cam.global_position).normalized()
+
+	sound_log.play(weapon.impact_sound)
+	var pulverized := limb.take_hit(shot_dir, weapon.damage, weapon.dismember_force)
+	if pulverized:
+		sound_log.play("gib_explosion")
+		gibs_pool.spawn_gibs(limb.global_position, shot_dir, weapon.dismember_force, 6)
+		_spawn_blood_burst(hit_pos, hit_normal, 14)
+		_spawn_blood_cloud(hit_pos, 0.2)
+		enemy.remove_detached_limb(limb)
+	else:
+		_spawn_blood_burst(hit_pos, hit_normal, 6)
+
+# Взрыв разносит и лежащие конечности в радиусе: толчок + возможный перемол.
+func _splash_detached_limbs(blast_pos: Vector3, weapon: WeaponData) -> void:
+	# Идём по копии — перемолотые удаляются из исходного списка.
+	for limb in enemy.detached_limbs.duplicate():
+		if not is_instance_valid(limb) or not (limb is DetachedLimb):
+			continue
+		var dl := limb as DetachedLimb
+		var dist := dl.global_position.distance_to(blast_pos)
+		if dist > weapon.splash_radius:
+			continue
+		var falloff := 1.0 - dist / weapon.splash_radius
+		var dir := (dl.global_position - blast_pos).normalized()
+		if dir == Vector3.ZERO:
+			dir = Vector3.UP
+		var pulverized := dl.take_hit(dir, weapon.splash_damage * falloff, weapon.dismember_force * falloff)
+		if pulverized:
+			gibs_pool.spawn_gibs(dl.global_position, dir, weapon.dismember_force, 6)
+			_spawn_blood_burst(dl.global_position, Vector3.UP, 10)
+			enemy.remove_detached_limb(dl)
 
 func _raycast(mouse_pos: Vector2) -> Dictionary:
 	var cam := _get_camera()
