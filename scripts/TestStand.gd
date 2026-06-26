@@ -672,11 +672,32 @@ func _spawn_blood_burst(pos: Vector3, dir: Vector3, count: int) -> void:
 		var fly_time := randf_range(0.3, 0.6)
 		var end_pos := pos + spread_dir * speed * fly_time + Vector3(0, -5.0 * fly_time * fly_time, 0)
 
+		# Если траектория уходит под пол — капля приземляется на платформу и
+		# оставляет там мини-пятно, вместо растворения в воздухе.
+		var lands := pos.y > 0.05 and end_pos.y < 0.0
+		var land_pt := end_pos
+		var travel := fly_time
+		if lands:
+			var t_floor := pos.y / (pos.y - end_pos.y)
+			land_pt = pos.lerp(end_pos, t_floor)
+			land_pt.y = 0.01
+			travel = fly_time * t_floor
+
 		var tween := create_tween()
 		tween.set_parallel(true)
-		tween.tween_property(mi, "global_position", end_pos, fly_time)
-		tween.tween_property(mi, "scale", Vector3.ZERO, fly_time * 0.45).set_delay(fly_time * 0.55)
-		get_tree().create_timer(fly_time + 0.1).timeout.connect(mi.queue_free)
+		tween.tween_property(mi, "global_position", land_pt, travel)
+		if lands:
+			tween.tween_property(mi, "scale", Vector3.ZERO, 0.08).set_delay(travel)
+			get_tree().create_timer(travel + 0.12).timeout.connect(mi.queue_free)
+			# Не каждая капля — бережём бюджет декалей.
+			if enable_decals and randf() < 0.6:
+				get_tree().create_timer(travel).timeout.connect(_drop_floor_speck.bind(land_pt))
+		else:
+			tween.tween_property(mi, "scale", Vector3.ZERO, fly_time * 0.45).set_delay(fly_time * 0.55)
+			get_tree().create_timer(fly_time + 0.1).timeout.connect(mi.queue_free)
+
+func _drop_floor_speck(at: Vector3) -> void:
+	decal_pool.spawn(at, Vector3.UP, null, randf_range(0.05, 0.12))
 
 func _spawn_blood_cloud(pos: Vector3, radius: float) -> void:
 	var mi := MeshInstance3D.new()
