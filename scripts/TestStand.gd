@@ -343,6 +343,7 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 	var hit_pos: Vector3
 	var shot_dir: Vector3
 	var cam := _get_camera()
+	var hit_surface := not result.is_empty()
 
 	if result.is_empty():
 		var ray_origin := cam.project_ray_origin(mouse_pos)
@@ -366,13 +367,14 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 		_spawn_blood_cloud(body_center, 0.5)
 		return
 
-	_spawn_blood_burst(hit_pos + Vector3(0, 0.2, 0), Vector3.UP, 18)
-	_spawn_blood_cloud(hit_pos + Vector3(0, 0.4, 0), 0.25)
-	if enable_decals:
-		for i in 3:
-			decal_pool.spawn(
-				hit_pos + Vector3(randf_range(-0.3, 0.3), 0.0, randf_range(-0.3, 0.3)),
-				Vector3.UP)
+	if hit_surface:
+		_spawn_blood_burst(hit_pos + Vector3(0, 0.2, 0), Vector3.UP, 18)
+		_spawn_blood_cloud(hit_pos + Vector3(0, 0.4, 0), 0.25)
+		if enable_decals:
+			for i in 3:
+				decal_pool.spawn(
+					hit_pos + Vector3(randf_range(-0.3, 0.3), 0.0, randf_range(-0.3, 0.3)),
+					Vector3.UP)
 
 func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void:
 	var area: Area3D = raycast_result.get("collider")
