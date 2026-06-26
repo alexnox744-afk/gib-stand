@@ -95,7 +95,7 @@ func _build_weapons() -> void:
 	rocket.sever_power = 3.0
 	rocket.fire_rate = 0.6
 	rocket.fire_sound = "rocket_launch"
-	rocket.impact_sound = "explosion_meat"
+	rocket.impact_sound = "rocket_explode"
 	weapons.append(rocket)
 
 	var plasma := WeaponData.new()
@@ -301,7 +301,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_on_reset()
 
 func _do_shoot(mouse_pos: Vector2) -> void:
-	if enemy == null or enemy.health.is_dead:
+	if enemy == null:
+		return
+	# Allow shooting dead ragdoll for blood; skip gibs/invisible state
+	if enemy.health.is_dead and not enemy.is_ragdoll:
 		return
 
 	var cam: Camera3D = _get_camera()
@@ -366,7 +369,6 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 	var blast_dir := (body_center - blast_pos).normalized()
 
 	if enemy.health.is_dead:
-		# Взрыв добил — разрываем на куски.
 		sound_log.play("gib_explosion")
 		enemy.gib()
 		_trigger_gibs(enemy.global_position, blast_dir, weapon)
@@ -378,7 +380,7 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 			"severed": false, "died": true, "overkill": true,
 		})
 	elif enemy.health.current_hp < hp_before:
-		# Зацепило, но жив — кровь в точке взрыва.
+		sound_log.play("explosion_meat")
 		_spawn_blood_burst(blast_pos, Vector3.UP, 16)
 		_spawn_blood_cloud(blast_pos, 0.3)
 
@@ -394,6 +396,12 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 	var shot_dir := (hit_pos - cam.global_position).normalized()
 
 	var result := enemy.apply_hit(zone, shot_dir, weapon)
+
+	# Dead ragdoll — blood only, no damage processing
+	if result.is_empty():
+		_spawn_blood_burst(hit_pos, hit_normal, 8)
+		return
+
 	sound_log.play(weapon.impact_sound)
 
 	if result.get("severed", false):

@@ -27,6 +27,8 @@ const ALL_ZONES := [
 const ARM_ZONES := ["upper_arm_L", "upper_arm_R", "lower_arm_L", "lower_arm_R"]
 const LEG_ZONES := ["thigh_L", "thigh_R", "shin_L", "shin_R"]
 
+const ARM_BLEED_RATE := 15.0   # HP/sec drain after each arm sever
+
 # Отдельный HP рук — обнулился → рука отрывается. К смерти не ведёт.
 const ARM_HP := {
 	"upper_arm_L": 35.0, "upper_arm_R": 35.0,
@@ -59,6 +61,7 @@ var leg_damage: Dictionary = {}       # накопленный урон по н�
 var head_damage: float = 0.0
 var severed_zones: Array[String] = []
 var is_dead: bool = false
+var bleed_rate: float = 0.0
 
 func _ready() -> void:
 	_init_state()
@@ -74,6 +77,7 @@ func _init_state() -> void:
 	head_damage = 0.0
 	severed_zones.clear()
 	is_dead = false
+	bleed_rate = 0.0
 
 func apply_damage(zone: String, raw_damage: float, sever_power: float = 1.0) -> Dictionary:
 	if is_dead or raw_damage <= 0.0:
@@ -131,12 +135,25 @@ func _sever(zone: String, result: Dictionary) -> void:
 		return
 	severed_zones.append(zone)
 	result["severed"] = true
+	if zone in ARM_ZONES:
+		bleed_rate += ARM_BLEED_RATE
 	zone_severed.emit(zone)
+
+func _process(delta: float) -> void:
+	if bleed_rate <= 0.0 or is_dead:
+		return
+	var old_hp := current_hp
+	current_hp = maxf(0.0, current_hp - bleed_rate * delta)
+	health_changed.emit("torso", old_hp, current_hp)
+	if current_hp <= 0.0:
+		var dummy := {}
+		_die(false, dummy)
 
 func _die(overkill: bool, result: Dictionary) -> void:
 	if is_dead:
 		return
 	is_dead = true
+	bleed_rate = 0.0
 	result["died"] = true
 	result["overkill"] = overkill
 	# При обычной смерти ноги, по которым настреляли, отваливаются именно сейчас.

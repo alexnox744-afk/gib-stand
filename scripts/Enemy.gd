@@ -21,6 +21,7 @@ var _simulator: PhysicalBoneSimulator3D
 
 const ZONE_TO_BONE := {
 	"head":        "Neck",
+	"torso":       "Torso",
 	"upper_arm_L": "UpperArm.L",
 	"lower_arm_L": "LowerArm.L",
 	"upper_arm_R": "UpperArm.R",
@@ -171,6 +172,21 @@ func _restore_all_bones() -> void:
 		return
 	for i in _skeleton.get_bone_count():
 		_skeleton.reset_bone_pose(i)
+
+func _physics_process(_delta: float) -> void:
+	if not is_ragdoll or _skeleton == null:
+		return
+	for zone in hitbox_nodes:
+		if zone not in ZONE_TO_BONE:
+			continue
+		var bone_name: String = str(ZONE_TO_BONE[zone])
+		var bone_idx := _skeleton.find_bone(bone_name)
+		if bone_idx < 0:
+			continue
+		var hb: Area3D = hitbox_nodes[zone]
+		if hb == null or hb.collision_layer == 0:
+			continue
+		hb.global_transform = _skeleton.global_transform * _skeleton.get_bone_global_pose(bone_idx)
 
 func apply_hit(zone: String, _shot_dir: Vector3, weapon: WeaponData) -> Dictionary:
 	var result := health.apply_damage(zone, weapon.damage, weapon.sever_power)

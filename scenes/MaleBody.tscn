@@ -3,88 +3,88 @@
 [ext_resource type="PackedScene" uid="uid://chkriwpt8lgul" path="res://models/male.glb" id="1_43yty"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gnbx7"]
-radius = 0.018771533
-height = 0.18771532
+radius = 0.12
+height = 0.28
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_4jkfr"]
 radius = 0.1538086
 height = 0.43814087
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_7xuav"]
-radius = 0.041697912
-height = 0.41697913
+radius = 0.13
+height = 0.42
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_yp5mm"]
 radius = 0.184
 height = 0.51
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_h18os"]
-radius = 0.01038653
-height = 0.1038653
+radius = 0.07
+height = 0.20
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_ukut8"]
 radius = 0.1015625
 height = 0.33544922
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_ms5do"]
-radius = 0.029951394
-height = 0.29951394
+radius = 0.055
+height = 0.30
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_b4l1q"]
 radius = 0.06
 height = 0.282
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_py1jx"]
-radius = 0.02848025
-height = 0.2848025
+radius = 0.048
+height = 0.285
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_y8vkb"]
 radius = 0.06
 height = 0.44012892
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_d3d7n"]
-radius = 0.029951412
-height = 0.2995141
+radius = 0.055
+height = 0.30
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_0oxku"]
 radius = 0.06
 height = 0.282
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_xfi5w"]
-radius = 0.028480247
-height = 0.28480247
+radius = 0.048
+height = 0.285
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_y3f6l"]
 radius = 0.060058594
 height = 0.44
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_e35at"]
-radius = 0.039781984
-height = 0.39781985
+radius = 0.075
+height = 0.40
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_43yty"]
 radius = 0.1
 height = 0.39553833
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_t7jxi"]
-radius = 0.054653477
-height = 0.5465348
+radius = 0.065
+height = 0.55
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_rc7we"]
 radius = 0.08642578
 height = 0.6189575
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_yyl3h"]
-radius = 0.03978199
-height = 0.3978199
+radius = 0.075
+height = 0.40
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_ka3yh"]
 radius = 0.1
 height = 0.396
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_sn6qd"]
-radius = 0.054653466
-height = 0.54653466
+radius = 0.065
+height = 0.55
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_chahn"]
 radius = 0.086
