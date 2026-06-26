@@ -1,5 +1,9 @@
 extends Node3D
 
+# Ниже этой доли урона (damage/MAX_HP) попадание не оставляет стойкую декаль —
+# только брызги. Кулак (~0.08) не пачкает, пистолет (0.18) и выше — да.
+const BLOOD_DECAL_MIN_RATIO := 0.1
+
 var enemy: Enemy
 var orbit_camera: OrbitCamera
 var gibs_pool: GibsPool
@@ -422,7 +426,7 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 			if cr.get("severed", false):
 				sound_log.play("sever_squelch")
 				enemy.impulse_limb(zone, shot_dir, weapon.dismember_force)
-				_spawn_blood_burst(hit_pos, hit_normal, 22)
+				_spawn_blood_burst(hit_pos, shot_dir, 22)
 				_spawn_blood_cloud(hit_pos, 0.2)
 				if enable_decals:
 					# Кость отрыва схлопнута в точку — декали оставляем в мире.
@@ -431,9 +435,9 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 							hit_pos + Vector3(randf_range(-0.08, 0.08), randf_range(-0.08, 0.08), 0.0),
 							hit_normal)
 			else:
-				_spawn_blood_burst(hit_pos, hit_normal, _blood_count_for(weapon.damage))
+				_spawn_blood_burst(hit_pos, shot_dir, _blood_count_for(weapon.damage))
 				_spawn_blood_cloud(hit_pos, _blood_cloud_radius_for(weapon.damage))
-				if enable_decals:
+				if enable_decals and _blood_ratio(weapon.damage) >= BLOOD_DECAL_MIN_RATIO:
 					decal_pool.spawn(hit_pos, hit_normal, bone_target, _blood_decal_size_for(weapon.damage))
 		return
 
@@ -446,7 +450,7 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 	if result.get("severed", false):
 		sound_log.play("sever_squelch")
 		enemy.impulse_limb(zone, shot_dir, weapon.dismember_force)
-		_spawn_blood_burst(hit_pos, hit_normal, 22)
+		_spawn_blood_burst(hit_pos, shot_dir, 22)
 		_spawn_blood_cloud(hit_pos, 0.2)
 		if enable_decals:
 			for i in 3:
@@ -469,9 +473,9 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 		if enable_decals:
 			decal_pool.spawn(hit_pos, hit_normal, bone_target)
 	else:
-		_spawn_blood_burst(hit_pos, hit_normal, _blood_count_for(result["damage"]))
+		_spawn_blood_burst(hit_pos, shot_dir, _blood_count_for(result["damage"]))
 		_spawn_blood_cloud(hit_pos, _blood_cloud_radius_for(result["damage"]))
-		if enable_decals:
+		if enable_decals and _blood_ratio(result["damage"]) >= BLOOD_DECAL_MIN_RATIO:
 			var dsize := _blood_decal_size_for(result["damage"])
 			decal_pool.spawn(hit_pos, hit_normal, bone_target, dsize)
 			if randf() > 0.55:
@@ -500,11 +504,11 @@ func _hit_detached_limb(area: Area3D, raycast_result: Dictionary, weapon: Weapon
 	if pulverized:
 		sound_log.play("gib_explosion")
 		gibs_pool.spawn_gibs(limb.global_position, shot_dir, weapon.dismember_force, 6)
-		_spawn_blood_burst(hit_pos, hit_normal, 14)
+		_spawn_blood_burst(hit_pos, shot_dir, 14)
 		_spawn_blood_cloud(hit_pos, 0.2)
 		enemy.remove_detached_limb(limb)
 	else:
-		_spawn_blood_burst(hit_pos, hit_normal, _blood_count_for(weapon.damage))
+		_spawn_blood_burst(hit_pos, shot_dir, _blood_count_for(weapon.damage))
 		_spawn_blood_cloud(hit_pos, _blood_cloud_radius_for(weapon.damage))
 
 # Взрыв разносит и лежащие конечности в радиусе: толчок + возможный перемол.
@@ -609,7 +613,7 @@ func _blood_cloud_radius_for(damage: float) -> float:
 func _blood_decal_size_for(damage: float) -> float:
 	return lerpf(0.1, 0.45, _blood_ratio(damage))
 
-func _spawn_blood_burst(pos: Vector3, normal: Vector3, count: int) -> void:
+func _spawn_blood_burst(pos: Vector3, dir: Vector3, count: int) -> void:
 	# Shared mesh + material for all drops in this burst
 	var shared_mat := StandardMaterial3D.new()
 	shared_mat.albedo_color = Color(0.72, 0.05, 0.05)
@@ -627,10 +631,12 @@ func _spawn_blood_burst(pos: Vector3, normal: Vector3, count: int) -> void:
 		add_child(mi)
 		mi.global_position = pos
 
-		var spread_dir := (normal + Vector3(
-			randf_range(-1.3, 1.3),
-			randf_range(-0.2, 1.0),
-			randf_range(-1.3, 1.3)
+		# Базовое направление — вдоль пули (выходное отверстие), плюс конус
+		# разброса. Вес 1.5 у dir, чтобы выстрел читался, а не размазывался.
+		var spread_dir := (dir.normalized() * 1.5 + Vector3(
+			randf_range(-0.7, 0.7),
+			randf_range(-0.3, 0.7),
+			randf_range(-0.7, 0.7)
 		)).normalized()
 		var speed := randf_range(1.5, 6.0)
 		var fly_time := randf_range(0.3, 0.6)
