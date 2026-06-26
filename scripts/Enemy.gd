@@ -332,9 +332,7 @@ func _on_died(overkill: bool) -> void:
 		_do_ragdoll_fall()
 
 func _do_ragdoll_fall() -> void:
-	print("[Enemy] ragdoll: simulator=", _simulator, " skeleton=", _skeleton)
 	if _simulator == null:
-		push_warning("Enemy: PhysicalBoneSimulator3D not found, ragdoll skipped")
 		return
 	_simulator.physical_bones_start_simulation()
 
