@@ -30,6 +30,7 @@ var _auto_fire_enabled: bool = false
 var _lmb_held: bool = false
 var _last_mouse_pos: Vector2 = Vector2.ZERO
 var _fire_timer: float = 0.0
+var _bleed_timer: float = 0.0   # тик порций крови из культей, пока враг истекает
 
 func _ready() -> void:
 	_build_weapons()
@@ -693,6 +694,34 @@ func _spawn_blood_cloud(pos: Vector3, radius: float) -> void:
 	tween.tween_property(mat, "albedo_color", Color(0.55, 0.04, 0.04, 0.0), 0.4)
 	get_tree().create_timer(0.5).timeout.connect(mi.queue_free)
 
+# Продолжающееся кровотечение из культей, пока враг ещё жив и истекает. Частота
+# порций растёт с общим bleed_rate, объём из каждой культи — с её вкладом в
+# SEVER_BLEED (голова хлещет фонтаном, рука капает).
+func _update_stump_bleeding(delta: float) -> void:
+	if enemy == null or enemy.health.is_dead:
+		return
+	var rate_total: float = enemy.health.bleed_rate
+	if rate_total <= 0.0:
+		return
+	_bleed_timer -= delta
+	if _bleed_timer > 0.0:
+		return
+	_bleed_timer = clampf(6.0 / rate_total, 0.08, 0.35)
+	var body_center := enemy.global_position + Vector3(0, 0.9, 0)
+	for zone in enemy.health.severed_zones:
+		var rate := float(HealthComponent.SEVER_BLEED.get(zone, 0.0))
+		if rate <= 0.0:
+			continue
+		var stump: Node3D = enemy.zone_nodes.get(zone)
+		if stump == null:
+			continue
+		# Направление струи — наружу от тела + вверх (фонтан из обрубка).
+		var out := stump.global_position - body_center
+		out.y = 0.0
+		var dir := out.normalized() + Vector3.UP * 1.5
+		var n := clampi(roundi(rate / 30.0), 1, 4)   # голова ~3, рука ~1
+		_spawn_blood_burst(stump.global_position, dir, n)
+
 # ─────────────────────────────────────────────────────────────
 # UI CALLBACKS
 # ─────────────────────────────────────────────────────────────
@@ -730,6 +759,7 @@ func _on_enemy_bled_out() -> void:
 # ─────────────────────────────────────────────────────────────
 
 func _process(delta: float) -> void:
+	_update_stump_bleeding(delta)
 	if gib_count_label:
 		gib_count_label.text = "Gibs: %d" % gibs_pool.active_count()
 	if decal_count_label:
