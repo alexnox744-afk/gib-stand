@@ -244,7 +244,30 @@ func apply_splash(hit_pos: Vector3, weapon: WeaponData) -> void:
 		var dist: float = zone_node.global_position.distance_to(hit_pos)
 		if dist <= weapon.splash_radius:
 			var falloff: float = 1.0 - (dist / weapon.splash_radius)
-			health.apply_damage(zone, weapon.splash_damage * falloff, weapon.sever_power)
+			# Мёртвому пул не трогаем — расчленяем через dead-hit. Отрыв
+			# конечностей трупа идёт тем же путём zone_severed → спавн RigidBody.
+			if health.is_dead:
+				health.apply_dead_hit(zone, weapon.splash_damage * falloff, weapon.sever_power)
+			else:
+				health.apply_damage(zone, weapon.splash_damage * falloff, weapon.sever_power)
+
+# Взрыв физически расшвыривает кости активного регдола: импульс по каждой
+# физкости в радиусе, сила ∝ близости (+ небольшой подброс вверх).
+func apply_ragdoll_explosion(blast_pos: Vector3, force: float, radius: float) -> void:
+	if not is_ragdoll or _simulator == null:
+		return
+	for child in _simulator.get_children():
+		if not (child is PhysicalBone3D):
+			continue
+		var pb := child as PhysicalBone3D
+		var dist := pb.global_position.distance_to(blast_pos)
+		if dist > radius:
+			continue
+		var falloff := 1.0 - dist / radius
+		var dir := (pb.global_position - blast_pos).normalized()
+		if dir == Vector3.ZERO:
+			dir = Vector3.UP
+		pb.apply_central_impulse((dir + Vector3.UP * 0.4) * force * falloff)
 
 func _on_zone_severed(zone: String) -> void:
 	var node: Node3D = zone_nodes.get(zone)

@@ -376,7 +376,13 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 	var was_dead: bool = enemy.health.is_dead
 	enemy.apply_splash(blast_pos, weapon)
 	_splash_detached_limbs(blast_pos, weapon)   # взрыв разносит и лежащие части
+	# Физически расшвыриваем регдол — труп реагирует на взрыв. Радиус волны шире
+	# зоны урона, чтобы тело ощутимо подбрасывало даже от мелкого взрыва.
+	enemy.apply_ragdoll_explosion(blast_pos, weapon.dismember_force * 5.0, weapon.splash_radius * 1.5)
 	if was_dead:
+		# Кровь от взрыва по трупу (урон и отрывы уже посчитаны в apply_splash).
+		_spawn_blood_burst(blast_pos, Vector3.UP, _blood_count_for(weapon.splash_damage))
+		_spawn_blood_cloud(blast_pos, _blood_cloud_radius_for(weapon.splash_damage))
 		return
 
 	var body_center := enemy.global_position + Vector3(0, 0.9, 0)
