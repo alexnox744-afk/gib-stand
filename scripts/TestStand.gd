@@ -162,6 +162,7 @@ func _build_scene() -> void:
 	enemy = enemy_scene.instantiate() as Enemy
 	enemy.name = "Enemy"
 	pivot.add_child(enemy)
+	enemy.health.bled_out.connect(_on_enemy_bled_out)
 
 	orbit_camera = OrbitCamera.new()
 	orbit_camera.name = "OrbitCamera"
@@ -590,6 +591,14 @@ func _on_hitbox_toggle(enabled: bool) -> void:
 	show_hitboxes = enabled
 	for zone in enemy.hitbox_debug_nodes:
 		enemy.hitbox_debug_nodes[zone].visible = enabled
+
+# Враг истёк кровью после отрыва (голова/рука) — даём звук и брызги в момент,
+# когда тело наконец падает, чтобы отложенная смерть читалась как смерть.
+func _on_enemy_bled_out() -> void:
+	sound_log.play("zombie_death")
+	var c := enemy.global_position + Vector3(0, 1.0, 0)
+	_spawn_blood_burst(c, Vector3.UP, 14)
+	_spawn_blood_cloud(c, 0.3)
 
 # ─────────────────────────────────────────────────────────────
 # PROCESS

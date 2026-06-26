@@ -4,16 +4,19 @@ extends Node
 signal health_changed(zone: String, old_hp: float, new_hp: float)
 signal zone_severed(zone: String)
 signal died(overkill: bool)
+signal bled_out                      # смерть именно от кровотечения (отложенная)
 signal reset_done
 
 # ─────────────────────────────────────────────────────────────
-# Аркадная модель урона:
+# Аркадная модель урона — ЕДИНАЯ система смерти от расчленёнки через bleed:
 #   • Общий пул (current_hp) — главная "жизнь". 0 → смерть (регдол).
-#   • Голова — свой порог; отрыв = мгновенная смерть. Хедшоты сильно бьют по пулу.
-#   • Руки — отдельный HP, отрываются независимо, почти НЕ трогают пул смерти.
-#   • Ноги — урон идёт в пул, но отрываются только В МОМЕНТ смерти (если по ним
-#     настреляли достаточно). Пока враг жив — нога не отвалится.
-#   • Торс/таз — прямой урон по пулу.
+#   • ЛЮБОЙ отрыв включает кровотечение (bleed_rate, HP/сек из пула). Это
+#     единственный механизм гибели от потери частей тела:
+#       – голова: порог по head_damage → ОЧЕНЬ сильный bleed (~0.5с до смерти);
+#       – руки:   свой HP → сильный bleed (срезает остаток пула за пару секунд).
+#     Bleed складывается за каждую оторванную зону.
+#   • Ноги — урон копится в пул, отрываются только В МОМЕНТ смерти.
+#   • Голова/торс/таз/ноги также бьют прямо по пулу (BODY_DRAIN).
 # ─────────────────────────────────────────────────────────────
 
 const MAX_HP := 100.0
@@ -27,7 +30,13 @@ const ALL_ZONES := [
 const ARM_ZONES := ["upper_arm_L", "upper_arm_R", "lower_arm_L", "lower_arm_R"]
 const LEG_ZONES := ["thigh_L", "thigh_R", "shin_L", "shin_R"]
 
-const ARM_BLEED_RATE := 15.0   # HP/sec drain after each arm sever
+# Кровотечение, которое включает отрыв зоны (HP/сек, сливается из общего пула).
+# Голова — экстремальное (~0.5с до смерти). Руки — сильное, но не мгновенное.
+const SEVER_BLEED := {
+	"head": 100.0,                                # ~0.5с с остатка пула после декапа
+	"upper_arm_L": 45.0, "upper_arm_R": 45.0,     # ~2с с почти полного пула
+	"lower_arm_L": 35.0, "lower_arm_R": 35.0,
+}
 
 # Отдельный HP рук — обнулился → рука отрывается. К смерти не ведёт.
 const ARM_HP := {
@@ -102,13 +111,12 @@ func apply_damage(zone: String, raw_damage: float, sever_power: float = 1.0) -> 
 	result["total_hp_after"] = current_hp
 	health_changed.emit(zone, pool_before, current_hp)
 
-	# 2) Зональная логика отрыва.
+	# 2) Зональная логика отрыва. Сам отрыв смерть НЕ вызывает — он включает
+	#    кровотечение (в _sever), а добивает уже _process опустошением пула.
 	if zone == "head":
 		head_damage += raw_damage * sever_power
 		if "head" not in severed_zones and head_damage >= HEAD_SEVER:
-			_sever("head", result)
-			_die(false, result)        # декапитация = смерть
-			return result
+			_sever("head", result)     # мощнейший bleed → смерть через ~0.5с
 	elif zone in ARM_ZONES:
 		var ah: float = float(arm_hp.get(zone, 0.0))
 		arm_hp[zone] = maxf(0.0, ah - raw_damage)
@@ -135,8 +143,7 @@ func _sever(zone: String, result: Dictionary) -> void:
 		return
 	severed_zones.append(zone)
 	result["severed"] = true
-	if zone in ARM_ZONES:
-		bleed_rate += ARM_BLEED_RATE
+	bleed_rate += float(SEVER_BLEED.get(zone, 0.0))
 	zone_severed.emit(zone)
 
 func _process(delta: float) -> void:
@@ -148,6 +155,7 @@ func _process(delta: float) -> void:
 	if current_hp <= 0.0:
 		var dummy := {}
 		_die(false, dummy)
+		bled_out.emit()
 
 func _die(overkill: bool, result: Dictionary) -> void:
 	if is_dead:
