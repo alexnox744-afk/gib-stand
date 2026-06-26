@@ -358,8 +358,9 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 	if cam == null:
 		return
 
-	# Где детонирует ракета: на поверхности, в которую попали, либо точка по лучу при промахе.
-	var result := _raycast(mouse_pos)
+	# Где детонирует ракета: первая поверхность по лучу — хитбокс врага ИЛИ пол/
+	# тело рядом (маска 1|2), либо точка в воздухе при полном промахе.
+	var result := _raycast_blast(mouse_pos)
 	var blast_pos: Vector3
 	if result.is_empty():
 		blast_pos = cam.project_ray_origin(mouse_pos) + cam.project_ray_normal(mouse_pos) * 8.0
@@ -548,6 +549,21 @@ func _raycast(mouse_pos: Vector2) -> Dictionary:
 	params.collision_mask = 2
 	params.collide_with_areas = true
 	params.collide_with_bodies = false
+	return space.intersect_ray(params)
+
+# Луч для детонации взрыва: видит и хитбоксы врага (слой 2), и пол/тела (слой 1),
+# поэтому ракета взрывается о ближайшую поверхность, а не улетает в пустоту.
+func _raycast_blast(mouse_pos: Vector2) -> Dictionary:
+	var cam := _get_camera()
+	if cam == null:
+		return {}
+	var space := get_world_3d().direct_space_state
+	var ray_origin := cam.project_ray_origin(mouse_pos)
+	var ray_dir := cam.project_ray_normal(mouse_pos)
+	var params := PhysicsRayQueryParameters3D.create(ray_origin, ray_origin + ray_dir * 100.0)
+	params.collision_mask = 1 | 2
+	params.collide_with_areas = true
+	params.collide_with_bodies = true
 	return space.intersect_ray(params)
 
 func _get_camera() -> Camera3D:
