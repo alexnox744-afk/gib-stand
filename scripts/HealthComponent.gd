@@ -5,6 +5,7 @@ signal health_changed(zone: String, old_hp: float, new_hp: float)
 signal zone_severed(zone: String)
 signal died(overkill: bool)
 signal bled_out                      # смерть именно от кровотечения (отложенная)
+signal incapacitated                 # функционально мёртв (не может действовать)
 signal reset_done
 
 # ─────────────────────────────────────────────────────────────
@@ -72,6 +73,13 @@ var severed_zones: Array[String] = []
 var is_dead: bool = false
 var bleed_rate: float = 0.0
 
+# Переключатель на будущее (для боёвки): true — отрыв головы СРАЗУ делает врага
+# функционально мёртвым (повод заблокировать ИИ/ввод), а видимая смерть всё равно
+# доигрывается кровотечением. false (по умолчанию) = кинематографично: безголовое
+# тело ещё "живо" те ~0.5с, пока истекает кровью.
+var incapacitate_on_decap: bool = false
+var is_incapacitated: bool = false   # не может действовать (декап при флаге, либо смерть)
+
 func _ready() -> void:
 	_init_state()
 
@@ -87,6 +95,7 @@ func _init_state() -> void:
 	severed_zones.clear()
 	is_dead = false
 	bleed_rate = 0.0
+	is_incapacitated = false
 
 func apply_damage(zone: String, raw_damage: float, sever_power: float = 1.0) -> Dictionary:
 	if is_dead or raw_damage <= 0.0:
@@ -117,6 +126,8 @@ func apply_damage(zone: String, raw_damage: float, sever_power: float = 1.0) -> 
 		head_damage += raw_damage * sever_power
 		if "head" not in severed_zones and head_damage >= HEAD_SEVER:
 			_sever("head", result)     # мощнейший bleed → смерть через ~0.5с
+			if incapacitate_on_decap:
+				_incapacitate()        # опц.: сразу "функционально мёртв"
 	elif zone in ARM_ZONES:
 		var ah: float = float(arm_hp.get(zone, 0.0))
 		arm_hp[zone] = maxf(0.0, ah - raw_damage)
@@ -157,10 +168,17 @@ func _process(delta: float) -> void:
 		_die(false, dummy)
 		bled_out.emit()
 
+func _incapacitate() -> void:
+	if is_incapacitated:
+		return
+	is_incapacitated = true
+	incapacitated.emit()
+
 func _die(overkill: bool, result: Dictionary) -> void:
 	if is_dead:
 		return
 	is_dead = true
+	_incapacitate()              # смерть всегда = функционально мёртв
 	bleed_rate = 0.0
 	result["died"] = true
 	result["overkill"] = overkill

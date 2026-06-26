@@ -20,6 +20,7 @@ var is_ragdoll: bool = false
 var _glb_root: Node3D
 var _skeleton: Skeleton3D
 var _simulator: PhysicalBoneSimulator3D
+var _limb_hider: LimbHider
 
 const ZONE_TO_BONE := {
 	"head":        "Neck",
@@ -68,6 +69,12 @@ func _attach_model() -> void:
 	add_child(_glb_root)
 	_skeleton = _find_skeleton(_glb_root)
 	_simulator = _find_simulator(_glb_root)
+	# Модификатор-пряталка конечностей: добавляем последним ребёнком скелета,
+	# чтобы в стеке модификаторов он шёл ПОСЛЕ PhysicalBoneSimulator3D.
+	if _skeleton != null:
+		_limb_hider = LimbHider.new()
+		_limb_hider.name = "LimbHider"
+		_skeleton.add_child(_limb_hider)
 	var skin_mat := StandardMaterial3D.new()
 	skin_mat.albedo_color = Color(0.78, 0.62, 0.51)
 	skin_mat.roughness = 0.85
@@ -170,10 +177,16 @@ func _collapse_bone(zone: String) -> void:
 	# и его дочерний Hitbox наследуют это → Jolt спамит "singular basis".
 	# 0.001 визуально схлопывает конечность в точку, но базис остаётся валидным.
 	_skeleton.set_bone_pose_scale(bone_idx, Vector3.ONE * 0.001)
+	# Регистрируем кость в модификаторе — он будет держать её схлопнутой даже
+	# когда симуляция регдола каждый кадр пытается вернуть scale в 1.
+	if _limb_hider != null:
+		_limb_hider.hide_bone(bone_idx)
 
 func _restore_all_bones() -> void:
 	if _skeleton == null:
 		return
+	if _limb_hider != null:
+		_limb_hider.clear_hidden()
 	for i in _skeleton.get_bone_count():
 		_skeleton.reset_bone_pose(i)
 
