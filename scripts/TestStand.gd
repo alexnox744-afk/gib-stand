@@ -3,6 +3,8 @@ extends Node3D
 # Ниже этой доли урона (damage/MAX_HP) попадание не оставляет стойкую декаль —
 # только брызги. Кулак (~0.08) не пачкает, пистолет (0.18) и выше — да.
 const BLOOD_DECAL_MIN_RATIO := 0.1
+# Сколько секунд труп-регдол продолжает натекать лужу после падения.
+const CORPSE_POOL_TIME := 6.0
 
 var enemy: Enemy
 var orbit_camera: OrbitCamera
@@ -33,6 +35,7 @@ var _fire_timer: float = 0.0
 var _bleed_timer: float = 0.0   # тик порций крови из культей, пока враг истекает
 var _bleed_elapsed: float = 0.0 # сколько уже длится кровотечение (для роста лужи)
 var _pool_timer: float = 0.0    # тик пятен растущей лужи на полу
+var _corpse_pool_elapsed: float = 0.0   # сколько труп уже натекает лужу
 
 func _ready() -> void:
 	_build_weapons()
@@ -702,43 +705,59 @@ func _spawn_blood_cloud(pos: Vector3, radius: float) -> void:
 # порций растёт с общим bleed_rate, объём из каждой культи — с её вкладом в
 # SEVER_BLEED (голова хлещет фонтаном, рука капает).
 func _update_stump_bleeding(delta: float) -> void:
-	if enemy == null or enemy.health.is_dead or enemy.health.bleed_rate <= 0.0:
-		_bleed_elapsed = 0.0
+	if enemy == null:
 		return
-	_bleed_elapsed += delta
-	var rate_total: float = enemy.health.bleed_rate
-	var body_center := enemy.global_position + Vector3(0, 0.9, 0)
+	var bleeding_alive := not enemy.health.is_dead and enemy.health.bleed_rate > 0.0
+	var corpse := enemy.health.is_dead and enemy.is_ragdoll
+	if not bleeding_alive and not corpse:
+		_bleed_elapsed = 0.0
+		_corpse_pool_elapsed = 0.0
+		return
 
-	_bleed_timer -= delta
-	var do_spurt := _bleed_timer <= 0.0
-	if do_spurt:
-		_bleed_timer = clampf(6.0 / rate_total, 0.08, 0.35)
+	# Фонтаны брызг из культей — только пока враг жив и активно истекает.
+	if bleeding_alive:
+		_bleed_elapsed += delta
+		_corpse_pool_elapsed = 0.0
+		_bleed_timer -= delta
+		if _bleed_timer <= 0.0:
+			_bleed_timer = clampf(6.0 / enemy.health.bleed_rate, 0.08, 0.35)
+			var body_center := enemy.global_position + Vector3(0, 0.9, 0)
+			for zone in enemy.health.severed_zones:
+				var rate := float(HealthComponent.SEVER_BLEED.get(zone, 0.0))
+				if rate <= 0.0:
+					continue
+				var stump: Node3D = enemy.zone_nodes.get(zone)
+				if stump == null:
+					continue
+				var out := stump.global_position - body_center
+				out.y = 0.0
+				var dir := out.normalized() + Vector3.UP * 1.5
+				_spawn_blood_burst(stump.global_position, dir, clampi(roundi(rate / 30.0), 1, 4))
+	else:
+		_corpse_pool_elapsed += delta
 
+	# Лужа на полу: у живого под культями, у трупа ещё CORPSE_POOL_TIME секунд
+	# под культями И центром тела (регдол истекает, пока кровь не «свернулась»).
+	if not enable_decals:
+		return
+	if corpse and _corpse_pool_elapsed >= CORPSE_POOL_TIME:
+		return
 	_pool_timer -= delta
-	var do_pool := enable_decals and _pool_timer <= 0.0
-	if do_pool:
-		_pool_timer = 0.35
-	# Лужа растёт со временем кровотечения: от пятна до большой за ~3с.
-	var pool_size := lerpf(0.15, 0.5, clampf(_bleed_elapsed / 3.0, 0.0, 1.0))
-
+	if _pool_timer > 0.0:
+		return
+	_pool_timer = 0.35
+	var grow := _bleed_elapsed if bleeding_alive else 3.0
+	var pool_size := lerpf(0.15, 0.5, clampf(grow / 3.0, 0.0, 1.0))
 	for zone in enemy.health.severed_zones:
-		var rate := float(HealthComponent.SEVER_BLEED.get(zone, 0.0))
-		if rate <= 0.0:
-			continue
 		var stump: Node3D = enemy.zone_nodes.get(zone)
-		if stump == null:
-			continue
-		var sp := stump.global_position
-		if do_spurt:
-			# Направление струи — наружу от тела + вверх (фонтан из обрубка).
-			var out := sp - body_center
-			out.y = 0.0
-			var dir := out.normalized() + Vector3.UP * 1.5
-			var n := clampi(roundi(rate / 30.0), 1, 4)   # голова ~3, рука ~1
-			_spawn_blood_burst(sp, dir, n)
-		if do_pool:
-			# Накопительное пятно на полу прямо под культёй (в мире, не привязано).
+		if stump != null:
+			var sp := stump.global_position
 			decal_pool.spawn(Vector3(sp.x, 0.02, sp.z), Vector3.UP, null, pool_size)
+	if corpse:
+		var torso: Node3D = enemy.zone_nodes.get("torso")
+		if torso != null:
+			var tp := torso.global_position
+			decal_pool.spawn(Vector3(tp.x, 0.02, tp.z), Vector3.UP, null, pool_size)
 
 # Декаль на срезе культи: на месте отрыва, привязана к кости сустава (едет за
 # телом). Нормаль смотрит наружу от центра тела, чтобы лечь на срез.

@@ -1,7 +1,7 @@
 class_name DecalPool
 extends Node3D
 
-const MAX_DECALS := 60
+const MAX_DECALS := 120
 
 var _pool: Array[Decal] = []
 var _active: Array[Decal] = []
