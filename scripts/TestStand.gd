@@ -93,7 +93,6 @@ func _build_weapons() -> void:
 	rocket.splash_damage = 60.0
 	rocket.dismember_force = 15.0
 	rocket.sever_power = 3.0
-	rocket.gib_on_direct_hit = true
 	rocket.fire_rate = 0.6
 	rocket.fire_sound = "rocket_launch"
 	rocket.impact_sound = "explosion_meat"
@@ -339,42 +338,49 @@ func _spread_rays(mouse_pos: Vector2, weapon: WeaponData) -> void:
 		_process_single_hit(result, weapon)
 
 func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
-	var result := _raycast(mouse_pos)
-	var hit_pos: Vector3
-	var shot_dir: Vector3
 	var cam := _get_camera()
-	var hit_surface := not result.is_empty()
-
-	if result.is_empty():
-		var ray_origin := cam.project_ray_origin(mouse_pos)
-		var ray_dir := cam.project_ray_normal(mouse_pos)
-		hit_pos = ray_origin + ray_dir * 5.0
-		shot_dir = ray_dir
-	else:
-		hit_pos = result["position"]
-		shot_dir = (result["position"] - cam.global_position).normalized()
-		_process_single_hit(result, weapon)
-		if enemy.health.is_dead:
-			return
-
-	sound_log.play(weapon.impact_sound)
-	enemy.apply_splash(hit_pos, weapon)
-
-	if enemy.health.is_dead:
-		var body_center := enemy.global_position + Vector3(0, 0.9, 0)
-		_trigger_gibs(hit_pos, shot_dir, weapon)
-		_spawn_blood_burst(body_center, shot_dir, 22)
-		_spawn_blood_cloud(body_center, 0.5)
+	if cam == null:
 		return
 
-	if hit_surface:
-		_spawn_blood_burst(hit_pos + Vector3(0, 0.2, 0), Vector3.UP, 18)
-		_spawn_blood_cloud(hit_pos + Vector3(0, 0.4, 0), 0.25)
-		if enable_decals:
-			for i in 3:
-				decal_pool.spawn(
-					hit_pos + Vector3(randf_range(-0.3, 0.3), 0.0, randf_range(-0.3, 0.3)),
-					Vector3.UP)
+	# Где детонирует ракета: на поверхности, в которую попали, либо точка по лучу при промахе.
+	var result := _raycast(mouse_pos)
+	var blast_pos: Vector3
+	if result.is_empty():
+		blast_pos = cam.project_ray_origin(mouse_pos) + cam.project_ray_normal(mouse_pos) * 8.0
+	else:
+		blast_pos = result["position"]
+
+	sound_log.play(weapon.impact_sound)
+	_spawn_explosion_fx(blast_pos)
+	if enable_shake:
+		_camera_shake(0.2)
+
+	# Взрыв — единственный источник урона: радиальный фолофф в пределах splash_radius.
+	var hp_before: float = enemy.health.current_hp
+	var was_dead: bool = enemy.health.is_dead
+	enemy.apply_splash(blast_pos, weapon)
+	if was_dead:
+		return
+
+	var body_center := enemy.global_position + Vector3(0, 0.9, 0)
+	var blast_dir := (body_center - blast_pos).normalized()
+
+	if enemy.health.is_dead:
+		# Взрыв добил — разрываем на куски.
+		sound_log.play("gib_explosion")
+		enemy.gib()
+		_trigger_gibs(enemy.global_position, blast_dir, weapon)
+		_spawn_blood_burst(body_center, blast_dir, 24)
+		_spawn_blood_cloud(body_center, 0.5)
+		hit_info_panel.update_hit({
+			"zone": "blast", "damage": hp_before,
+			"total_hp_before": hp_before, "total_hp_after": 0.0,
+			"severed": false, "died": true, "overkill": true,
+		})
+	elif enemy.health.current_hp < hp_before:
+		# Зацепило, но жив — кровь в точке взрыва.
+		_spawn_blood_burst(blast_pos, Vector3.UP, 16)
+		_spawn_blood_cloud(blast_pos, 0.3)
 
 func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void:
 	var area: Area3D = raycast_result.get("collider")
@@ -386,22 +392,6 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 	var hit_normal: Vector3 = raycast_result["normal"]
 	var cam := _get_camera()
 	var shot_dir := (hit_pos - cam.global_position).normalized()
-
-	if weapon.gib_on_direct_hit and not enemy.health.is_dead:
-		enemy.health.current_hp = 0
-		enemy.health.is_dead = true
-		enemy.visible = false
-		enemy.health.died.emit(true)
-		sound_log.play(weapon.impact_sound)
-		sound_log.play("gib_explosion")
-		var body_center := enemy.global_position + Vector3(0, 0.9, 0)
-		_trigger_gibs(hit_pos, shot_dir, weapon)
-		_spawn_blood_burst(body_center, shot_dir, 22)
-		_spawn_blood_cloud(body_center, 0.5)
-		hit_info_panel.update_hit({"zone": zone, "damage": weapon.damage, "zone_hp_before": 0,
-			"zone_hp_after": 0, "total_hp_before": enemy.health.max_hp, "total_hp_after": 0,
-			"severed": false, "died": true, "overkill": true})
-		return
 
 	var result := enemy.apply_hit(zone, shot_dir, weapon)
 	sound_log.play(weapon.impact_sound)
@@ -466,6 +456,31 @@ func _get_camera() -> Camera3D:
 
 func _trigger_gibs(pos: Vector3, direction: Vector3, weapon: WeaponData) -> void:
 	gibs_pool.spawn_gibs(pos + Vector3(0, 0.8, 0), direction, weapon.dismember_force, 10)
+
+func _spawn_explosion_fx(pos: Vector3) -> void:
+	var mi := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.2
+	sm.height = 0.4
+	mi.mesh = sm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.6, 0.15, 0.9)
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.45, 0.1)
+	mat.emission_energy_multiplier = 3.0
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	mi.global_position = pos
+
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(mi, "scale", Vector3.ONE * 7.0, 0.25) \
+		.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	tween.tween_property(mat, "albedo_color", Color(1.0, 0.3, 0.05, 0.0), 0.25)
+	get_tree().create_timer(0.3).timeout.connect(mi.queue_free)
 
 func _camera_shake(strength: float) -> void:
 	if orbit_camera == null:

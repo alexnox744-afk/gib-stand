@@ -161,7 +161,10 @@ func _collapse_bone(zone: String) -> void:
 	var bone_idx := _skeleton.find_bone(bone_name)
 	if bone_idx < 0:
 		return
-	_skeleton.set_bone_pose_scale(bone_idx, Vector3.ZERO)
+	# Не ноль: нулевой scale делает базис кости сингулярным, а PhysicalBone3D
+	# и его дочерний Hitbox наследуют это → Jolt спамит "singular basis".
+	# 0.001 визуально схлопывает конечность в точку, но базис остаётся валидным.
+	_skeleton.set_bone_pose_scale(bone_idx, Vector3.ONE * 0.001)
 
 func _restore_all_bones() -> void:
 	if _skeleton == null:
@@ -260,6 +263,13 @@ func _do_ragdoll_fall() -> void:
 	if _simulator == null:
 		return
 	_simulator.physical_bones_start_simulation()
+
+# Тело разорвано взрывом: гасим регдол и прячем модель, дальше показываем только гибсы.
+func gib() -> void:
+	if _simulator != null and is_ragdoll:
+		_simulator.physical_bones_stop_simulation()
+	is_ragdoll = false
+	visible = false
 
 func reset() -> void:
 	if _simulator != null and is_ragdoll:
