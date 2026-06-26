@@ -432,6 +432,7 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 							hit_normal)
 			else:
 				_spawn_blood_burst(hit_pos, hit_normal, _blood_count_for(weapon.damage))
+				_spawn_blood_cloud(hit_pos, _blood_cloud_radius_for(weapon.damage))
 				if enable_decals:
 					decal_pool.spawn(hit_pos, hit_normal, bone_target)
 		return
@@ -469,6 +470,7 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 			decal_pool.spawn(hit_pos, hit_normal, bone_target)
 	else:
 		_spawn_blood_burst(hit_pos, hit_normal, _blood_count_for(result["damage"]))
+		_spawn_blood_cloud(hit_pos, _blood_cloud_radius_for(result["damage"]))
 		if enable_decals:
 			decal_pool.spawn(hit_pos, hit_normal, bone_target)
 			if randf() > 0.55:
@@ -502,6 +504,7 @@ func _hit_detached_limb(area: Area3D, raycast_result: Dictionary, weapon: Weapon
 		enemy.remove_detached_limb(limb)
 	else:
 		_spawn_blood_burst(hit_pos, hit_normal, _blood_count_for(weapon.damage))
+		_spawn_blood_cloud(hit_pos, _blood_cloud_radius_for(weapon.damage))
 
 # Взрыв разносит и лежащие конечности в радиусе: толчок + возможный перемол.
 func _splash_detached_limbs(blast_pos: Vector3, weapon: WeaponData) -> void:
@@ -589,11 +592,17 @@ func _camera_shake(strength: float) -> void:
 # BLOOD FX
 # ─────────────────────────────────────────────────────────────
 
-# Сколько капель в всплеске — по доле нанесённого урона к полному запасу HP:
-# царапина → 3–4, тяжёлый выстрел (≈ весь пул) → ~30.
+# Доля нанесённого урона к полному запасу HP — общая база для объёма крови.
+func _blood_ratio(damage: float) -> float:
+	return clampf(damage / HealthComponent.MAX_HP, 0.0, 1.0)
+
+# Капли всплеска: царапина → 3–4, тяжёлый выстрел (≈ весь пул) → ~30.
 func _blood_count_for(damage: float) -> int:
-	var ratio := clampf(damage / HealthComponent.MAX_HP, 0.0, 1.0)
-	return roundi(lerpf(3.0, 30.0, ratio))
+	return roundi(lerpf(3.0, 30.0, _blood_ratio(damage)))
+
+# Радиус облака крови по той же доле урона.
+func _blood_cloud_radius_for(damage: float) -> float:
+	return lerpf(0.05, 0.5, _blood_ratio(damage))
 
 func _spawn_blood_burst(pos: Vector3, normal: Vector3, count: int) -> void:
 	# Shared mesh + material for all drops in this burst
