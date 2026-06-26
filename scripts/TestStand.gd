@@ -431,7 +431,7 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 							hit_pos + Vector3(randf_range(-0.08, 0.08), randf_range(-0.08, 0.08), 0.0),
 							hit_normal)
 			else:
-				_spawn_blood_burst(hit_pos, hit_normal, 8)
+				_spawn_blood_burst(hit_pos, hit_normal, _blood_count_for(weapon.damage))
 				if enable_decals:
 					decal_pool.spawn(hit_pos, hit_normal, bone_target)
 		return
@@ -468,7 +468,7 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 		if enable_decals:
 			decal_pool.spawn(hit_pos, hit_normal, bone_target)
 	else:
-		_spawn_blood_burst(hit_pos, hit_normal, 10)
+		_spawn_blood_burst(hit_pos, hit_normal, _blood_count_for(result["damage"]))
 		if enable_decals:
 			decal_pool.spawn(hit_pos, hit_normal, bone_target)
 			if randf() > 0.55:
@@ -501,7 +501,7 @@ func _hit_detached_limb(area: Area3D, raycast_result: Dictionary, weapon: Weapon
 		_spawn_blood_cloud(hit_pos, 0.2)
 		enemy.remove_detached_limb(limb)
 	else:
-		_spawn_blood_burst(hit_pos, hit_normal, 6)
+		_spawn_blood_burst(hit_pos, hit_normal, _blood_count_for(weapon.damage))
 
 # Взрыв разносит и лежащие конечности в радиусе: толчок + возможный перемол.
 func _splash_detached_limbs(blast_pos: Vector3, weapon: WeaponData) -> void:
@@ -589,6 +589,12 @@ func _camera_shake(strength: float) -> void:
 # BLOOD FX
 # ─────────────────────────────────────────────────────────────
 
+# Сколько капель в всплеске — по доле нанесённого урона к полному запасу HP:
+# царапина → 3–4, тяжёлый выстрел (≈ весь пул) → ~30.
+func _blood_count_for(damage: float) -> int:
+	var ratio := clampf(damage / HealthComponent.MAX_HP, 0.0, 1.0)
+	return roundi(lerpf(3.0, 30.0, ratio))
+
 func _spawn_blood_burst(pos: Vector3, normal: Vector3, count: int) -> void:
 	# Shared mesh + material for all drops in this burst
 	var shared_mat := StandardMaterial3D.new()
@@ -599,7 +605,7 @@ func _spawn_blood_burst(pos: Vector3, normal: Vector3, count: int) -> void:
 	shared_mesh.height = 0.04
 	shared_mesh.material = shared_mat
 
-	var spawn_count := mini(count, 22)
+	var spawn_count := mini(count, 32)
 	for _i in spawn_count:
 		var mi := MeshInstance3D.new()
 		mi.mesh = shared_mesh
