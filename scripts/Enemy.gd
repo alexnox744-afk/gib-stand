@@ -178,8 +178,7 @@ func apply_hit(zone: String, _shot_dir: Vector3, weapon: WeaponData) -> Dictiona
 	return result
 
 func apply_splash(hit_pos: Vector3, weapon: WeaponData) -> void:
-	var all_zones: Array = HealthComponent.ZONE_HP.keys()
-	for zone in all_zones:
+	for zone in zone_nodes.keys():
 		if zone in health.severed_zones:
 			continue
 		var zone_node: Node3D = zone_nodes.get(zone)
