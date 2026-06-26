@@ -434,7 +434,7 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 				_spawn_blood_burst(hit_pos, hit_normal, _blood_count_for(weapon.damage))
 				_spawn_blood_cloud(hit_pos, _blood_cloud_radius_for(weapon.damage))
 				if enable_decals:
-					decal_pool.spawn(hit_pos, hit_normal, bone_target)
+					decal_pool.spawn(hit_pos, hit_normal, bone_target, _blood_decal_size_for(weapon.damage))
 		return
 
 	sound_log.play(weapon.impact_sound)
@@ -472,11 +472,12 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 		_spawn_blood_burst(hit_pos, hit_normal, _blood_count_for(result["damage"]))
 		_spawn_blood_cloud(hit_pos, _blood_cloud_radius_for(result["damage"]))
 		if enable_decals:
-			decal_pool.spawn(hit_pos, hit_normal, bone_target)
+			var dsize := _blood_decal_size_for(result["damage"])
+			decal_pool.spawn(hit_pos, hit_normal, bone_target, dsize)
 			if randf() > 0.55:
 				decal_pool.spawn(
 					hit_pos + Vector3(randf_range(-0.12, 0.12), randf_range(-0.1, 0.1), 0.0),
-					hit_normal, bone_target)
+					hit_normal, bone_target, dsize * 0.7)
 
 	hit_info_panel.update_hit(result)
 
@@ -603,6 +604,10 @@ func _blood_count_for(damage: float) -> int:
 # Радиус облака крови по той же доле урона.
 func _blood_cloud_radius_for(damage: float) -> float:
 	return lerpf(0.05, 0.5, _blood_ratio(damage))
+
+# Размер декали-пятна в точке попадания по той же доле урона.
+func _blood_decal_size_for(damage: float) -> float:
+	return lerpf(0.1, 0.45, _blood_ratio(damage))
 
 func _spawn_blood_burst(pos: Vector3, normal: Vector3, count: int) -> void:
 	# Shared mesh + material for all drops in this burst

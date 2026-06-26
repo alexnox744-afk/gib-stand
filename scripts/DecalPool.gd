@@ -34,7 +34,7 @@ func _fill_pool() -> void:
 		add_child(d)
 		_pool.append(d)
 
-func spawn(pos: Vector3, normal: Vector3, target: Node3D = null) -> void:
+func spawn(pos: Vector3, normal: Vector3, target: Node3D = null, size: float = -1.0) -> void:
 	var d: Decal
 	if _pool.is_empty():
 		d = _active.pop_front()
@@ -56,7 +56,13 @@ func spawn(pos: Vector3, normal: Vector3, target: Node3D = null) -> void:
 
 	d.global_transform = Transform3D(splat_basis, pos + y * 0.05)
 
-	var sz := randf_range(0.15, 0.4)
+	# size >= 0 → задан вызывающим (масштаб по урону) с лёгким джиттером,
+	# иначе старое случайное пятно.
+	var sz: float
+	if size > 0.0:
+		sz = size * randf_range(0.9, 1.1)
+	else:
+		sz = randf_range(0.15, 0.4)
 	d.size = Vector3(sz, 0.4, sz)
 	d.visible = true
 	_active.append(d)
