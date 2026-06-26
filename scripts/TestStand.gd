@@ -401,14 +401,24 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 	# Dead ragdoll — try limb detachment, at least blood
 	if result.is_empty():
 		if enemy.is_ragdoll:
+			# BoneAttachment3D зоны: декаль на нём поедет за оседающим трупом.
+			var bone_target: Node3D = enemy.zone_nodes.get(zone) as Node3D
 			var cr := enemy.apply_corpse_hit(zone, weapon)
 			if cr.get("severed", false):
 				sound_log.play("sever_squelch")
 				enemy.impulse_limb(zone, shot_dir, weapon.dismember_force)
 				_spawn_blood_burst(hit_pos, hit_normal, 22)
 				_spawn_blood_cloud(hit_pos, 0.2)
+				if enable_decals:
+					# Кость отрыва схлопнута в точку — декали оставляем в мире.
+					for i in 3:
+						decal_pool.spawn(
+							hit_pos + Vector3(randf_range(-0.08, 0.08), randf_range(-0.08, 0.08), 0.0),
+							hit_normal)
 			else:
 				_spawn_blood_burst(hit_pos, hit_normal, 8)
+				if enable_decals:
+					decal_pool.spawn(hit_pos, hit_normal, bone_target)
 		return
 
 	sound_log.play(weapon.impact_sound)
