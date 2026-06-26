@@ -96,17 +96,24 @@ func _build_weapons() -> void:
 	rocket.fire_rate = 0.6
 	rocket.fire_sound = "rocket_launch"
 	rocket.impact_sound = "rocket_explode"
+	rocket.explosion_color = Color(1.0, 0.6, 0.15, 0.9)   # оранжевый огненный
+	rocket.explosion_scale = 7.0
 	weapons.append(rocket)
 
+	# Плазма — мини-ракетница: частые маленькие ЭНЕРГЕТИЧЕСКИЕ взрывы.
 	var plasma := WeaponData.new()
 	plasma.weapon_name = "Plasma"
-	plasma.hit_type = WeaponData.HitType.HITSCAN_SINGLE
+	plasma.hit_type = WeaponData.HitType.PROJECTILE_SPLASH
 	plasma.damage = 30.0
-	plasma.dismember_force = 5.0
-	plasma.sever_power = 1.2
-	plasma.fire_rate = 4.0
+	plasma.splash_radius = 0.9                             # ~втрое меньше ракеты
+	plasma.splash_damage = 30.0
+	plasma.dismember_force = 6.0
+	plasma.sever_power = 1.5
+	plasma.fire_rate = 3.0                                 # быстрее ракеты, мельче взрыв
 	plasma.fire_sound = "plasma_zap"
 	plasma.impact_sound = "impact_energy"
+	plasma.explosion_color = Color(0.35, 0.75, 1.0, 0.9)  # голубой энергетический
+	plasma.explosion_scale = 3.2
 	weapons.append(plasma)
 
 # ─────────────────────────────────────────────────────────────
@@ -355,9 +362,9 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 		blast_pos = result["position"]
 
 	sound_log.play(weapon.impact_sound)
-	_spawn_explosion_fx(blast_pos)
+	_spawn_explosion_fx(blast_pos, weapon.explosion_color, weapon.explosion_scale)
 	if enable_shake:
-		_camera_shake(0.2)
+		_camera_shake(weapon.explosion_scale * 0.03)   # мельче взрыв → слабее тряска
 
 	# Взрыв — единственный источник урона: радиальный фолофф в пределах splash_radius.
 	var hp_before: float = enemy.health.current_hp
@@ -490,16 +497,16 @@ func _get_camera() -> Camera3D:
 func _trigger_gibs(pos: Vector3, direction: Vector3, weapon: WeaponData) -> void:
 	gibs_pool.spawn_gibs(pos + Vector3(0, 0.8, 0), direction, weapon.dismember_force, 10)
 
-func _spawn_explosion_fx(pos: Vector3) -> void:
+func _spawn_explosion_fx(pos: Vector3, color: Color = Color(1.0, 0.6, 0.15, 0.9), peak_scale: float = 7.0) -> void:
 	var mi := MeshInstance3D.new()
 	var sm := SphereMesh.new()
 	sm.radius = 0.2
 	sm.height = 0.4
 	mi.mesh = sm
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 0.6, 0.15, 0.9)
+	mat.albedo_color = color
 	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.45, 0.1)
+	mat.emission = Color(color.r, color.g, color.b)
 	mat.emission_energy_multiplier = 3.0
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -508,11 +515,13 @@ func _spawn_explosion_fx(pos: Vector3) -> void:
 	add_child(mi)
 	mi.global_position = pos
 
+	var fade_color := color
+	fade_color.a = 0.0
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(mi, "scale", Vector3.ONE * 7.0, 0.25) \
+	tween.tween_property(mi, "scale", Vector3.ONE * peak_scale, 0.25) \
 		.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-	tween.tween_property(mat, "albedo_color", Color(1.0, 0.3, 0.05, 0.0), 0.25)
+	tween.tween_property(mat, "albedo_color", fade_color, 0.25)
 	get_tree().create_timer(0.3).timeout.connect(mi.queue_free)
 
 func _camera_shake(strength: float) -> void:
