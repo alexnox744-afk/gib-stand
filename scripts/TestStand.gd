@@ -397,9 +397,17 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 
 	var result := enemy.apply_hit(zone, shot_dir, weapon)
 
-	# Dead ragdoll — blood only, no damage processing
+	# Dead ragdoll — try limb detachment, at least blood
 	if result.is_empty():
-		_spawn_blood_burst(hit_pos, hit_normal, 8)
+		if enemy.is_ragdoll:
+			var cr := enemy.apply_corpse_hit(zone, weapon)
+			if cr.get("severed", false):
+				sound_log.play("sever_squelch")
+				enemy.impulse_limb(zone, shot_dir, weapon.dismember_force)
+				_spawn_blood_burst(hit_pos, hit_normal, 22)
+				_spawn_blood_cloud(hit_pos, 0.2)
+			else:
+				_spawn_blood_burst(hit_pos, hit_normal, 8)
 		return
 
 	sound_log.play(weapon.impact_sound)

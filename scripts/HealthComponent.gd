@@ -170,6 +170,30 @@ func _zone_hp(zone: String) -> float:
 		return float(arm_hp.get(zone, 0.0))
 	return current_hp
 
+func apply_dead_hit(zone: String, raw_damage: float, sever_power: float = 1.0) -> Dictionary:
+	if not is_dead or raw_damage <= 0.0 or zone in severed_zones:
+		return {}
+	var result := {
+		"zone": zone, "damage": raw_damage,
+		"zone_hp_before": 0.0, "zone_hp_after": 0.0,
+		"total_hp_before": 0.0, "total_hp_after": 0.0,
+		"severed": false, "died": false, "overkill": false,
+	}
+	if zone == "head":
+		head_damage += raw_damage * sever_power
+		if head_damage >= HEAD_SEVER:
+			_sever("head", result)
+	elif zone in ARM_ZONES:
+		var ah := float(arm_hp.get(zone, 0.0))
+		arm_hp[zone] = maxf(0.0, ah - raw_damage)
+		if arm_hp[zone] <= 0.0:
+			_sever(zone, result)
+	elif zone in LEG_ZONES:
+		leg_damage[zone] = float(leg_damage.get(zone, 0.0)) + raw_damage * sever_power
+		if float(leg_damage.get(zone, 0.0)) >= float(LEG_SEVER[zone]):
+			_sever(zone, result)
+	return result
+
 func apply_splash_damage(zones_in_radius: Array, damage: float, sever_power: float = 1.0) -> void:
 	for zone in zones_in_radius:
 		apply_damage(zone, damage, sever_power)

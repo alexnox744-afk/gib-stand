@@ -203,10 +203,17 @@ func _attach_hitbox_to_bone(area: Area3D) -> void:
 	# мировое положение хитбокса (баним разницу базисов кости и капсулы в local).
 	ba.transform = _skeleton.get_bone_global_pose(bone_idx)
 	area.reparent(ba, true)
+	# zone_nodes теперь указывает на BoneAttachment — он следует за костью всегда,
+	# поэтому .global_position даёт реальную позицию и в стойке, и в регдоле.
+	zone_nodes[str(area.get_meta("zone"))] = ba
 
 func apply_hit(zone: String, _shot_dir: Vector3, weapon: WeaponData) -> Dictionary:
 	var result := health.apply_damage(zone, weapon.damage, weapon.sever_power)
 	hit_processed.emit(result)
+	return result
+
+func apply_corpse_hit(zone: String, weapon: WeaponData) -> Dictionary:
+	var result := health.apply_dead_hit(zone, weapon.damage, weapon.sever_power)
 	return result
 
 func apply_splash(hit_pos: Vector3, weapon: WeaponData) -> void:
