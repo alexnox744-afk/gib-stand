@@ -16,9 +16,9 @@ var detached_limbs: Array[RigidBody3D] = []
 var health: HealthComponent
 var is_ragdoll: bool = false
 var _original_transforms: Dictionary = {}
-var _ragdoll_tween: Tween
 var _glb_root: Node3D
 var _skeleton: Skeleton3D
+var _simulator: PhysicalBoneSimulator3D
 
 const ZONE_TO_BONE := {
 	"head":        "Neck",
@@ -94,7 +94,7 @@ func _build_body() -> void:
 	_attach_model()
 
 func _attach_model() -> void:
-	var packed: PackedScene = load("res://models/male.glb") as PackedScene
+	var packed: PackedScene = load("res://scenes/MaleBody.tscn") as PackedScene
 	if packed == null:
 		return
 	var inst := packed.instantiate()
@@ -105,10 +105,20 @@ func _attach_model() -> void:
 	_glb_root.scale = Vector3.ONE * 0.83
 	add_child(_glb_root)
 	_skeleton = _find_skeleton(_glb_root)
+	_simulator = _find_simulator(_glb_root)
 	var skin_mat := StandardMaterial3D.new()
 	skin_mat.albedo_color = Color(0.78, 0.62, 0.51)
 	skin_mat.roughness = 0.85
 	_apply_material_recursive(_glb_root, skin_mat)
+
+func _find_simulator(node: Node) -> PhysicalBoneSimulator3D:
+	if node is PhysicalBoneSimulator3D:
+		return node as PhysicalBoneSimulator3D
+	for child in node.get_children():
+		var found := _find_simulator(child)
+		if found != null:
+			return found
+	return null
 
 func _find_skeleton(node: Node) -> Skeleton3D:
 	if node is Skeleton3D:
@@ -322,17 +332,13 @@ func _on_died(overkill: bool) -> void:
 		_do_ragdoll_fall()
 
 func _do_ragdoll_fall() -> void:
-	if _ragdoll_tween and _ragdoll_tween.is_running():
-		_ragdoll_tween.kill()
-	_ragdoll_tween = create_tween()
-	_ragdoll_tween.set_parallel(true)
-	_ragdoll_tween.tween_property(self, "rotation:z", randf_range(1.2, 1.6) * sign(randf_range(-1, 1)), 0.4)
-	_ragdoll_tween.tween_property(self, "position:y", -0.3, 0.4)
+	if _simulator == null:
+		return
+	_simulator.physical_bones_start_simulation()
 
 func reset() -> void:
-	# Stop any in-flight ragdoll animation
-	if _ragdoll_tween and _ragdoll_tween.is_running():
-		_ragdoll_tween.kill()
+	if _simulator != null and is_ragdoll:
+		_simulator.physical_bones_stop_simulation()
 
 	# Remove detached limbs
 	for rb in detached_limbs:
