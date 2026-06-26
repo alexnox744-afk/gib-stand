@@ -12,6 +12,8 @@ var hitbox_nodes: Dictionary = {}
 var hitbox_debug_nodes: Dictionary = {}
 # Detached limb rigid bodies (spawned on sever)
 var detached_limbs: Array[RigidBody3D] = []
+# Все Area3D-хитбоксы плоским списком (включает оба torso-хитбокса)
+var all_hitboxes: Array[Area3D] = []
 
 var health: HealthComponent
 var is_ragdoll: bool = false
@@ -75,6 +77,7 @@ func _collect_hitboxes_from_model() -> void:
 	if _glb_root == null:
 		return
 	_scan_node_for_hitboxes(_glb_root)
+	_attach_hitboxes_to_bones()
 
 func _scan_node_for_hitboxes(node: Node) -> void:
 	if node is Area3D and node.has_meta("zone"):
@@ -83,6 +86,7 @@ func _scan_node_for_hitboxes(node: Node) -> void:
 		area.collision_layer = 2
 		area.collision_mask = 0
 		hitbox_nodes[zone] = area
+		all_hitboxes.append(area)
 		if node.get_parent() is Node3D:
 			zone_nodes[zone] = node.get_parent() as Node3D
 		var dbg := _make_debug_overlay(area)
@@ -173,20 +177,32 @@ func _restore_all_bones() -> void:
 	for i in _skeleton.get_bone_count():
 		_skeleton.reset_bone_pose(i)
 
-func _physics_process(_delta: float) -> void:
-	if not is_ragdoll or _skeleton == null:
+# Перевешиваем каждый хитбокс на BoneAttachment3D, привязанный к его кости.
+# BoneAttachment сам следует за позой кости — и в покое, и в регдоле, — поэтому
+# хитбоксы едут за упавшим телом и не "размазываются" после респавна (мы больше
+# не трогаем их global_transform вручную).
+func _attach_hitboxes_to_bones() -> void:
+	if _skeleton == null:
 		return
-	for zone in hitbox_nodes:
-		if zone not in ZONE_TO_BONE:
-			continue
-		var bone_name: String = str(ZONE_TO_BONE[zone])
-		var bone_idx := _skeleton.find_bone(bone_name)
-		if bone_idx < 0:
-			continue
-		var hb: Area3D = hitbox_nodes[zone]
-		if hb == null or hb.collision_layer == 0:
-			continue
-		hb.global_transform = _skeleton.global_transform * _skeleton.get_bone_global_pose(bone_idx)
+	for area in all_hitboxes:
+		_attach_hitbox_to_bone(area)
+
+func _attach_hitbox_to_bone(area: Area3D) -> void:
+	var pbone := area.get_parent()
+	if pbone == null or not (pbone is PhysicalBone3D):
+		return
+	var bone_name: String = (pbone as PhysicalBone3D).bone_name
+	var bone_idx := _skeleton.find_bone(bone_name)
+	if bone_idx < 0:
+		return
+	var ba := BoneAttachment3D.new()
+	ba.name = "HBAttach_" + bone_name
+	_skeleton.add_child(ba)
+	ba.bone_name = bone_name
+	# Сразу ставим attachment в позу кости, чтобы reparent корректно сохранил
+	# мировое положение хитбокса (баним разницу базисов кости и капсулы в local).
+	ba.transform = _skeleton.get_bone_global_pose(bone_idx)
+	area.reparent(ba, true)
 
 func apply_hit(zone: String, _shot_dir: Vector3, weapon: WeaponData) -> Dictionary:
 	var result := health.apply_damage(zone, weapon.damage, weapon.sever_power)
