@@ -385,7 +385,7 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 	_splash_detached_limbs(blast_pos, weapon)   # взрыв разносит и лежащие части
 	# Физически расшвыриваем регдол — труп реагирует на взрыв. Радиус волны шире
 	# зоны урона, чтобы тело ощутимо подбрасывало даже от мелкого взрыва.
-	enemy.apply_ragdoll_explosion(blast_pos, weapon.dismember_force * 5.0, weapon.splash_radius * 1.5)
+	enemy.apply_ragdoll_explosion(blast_pos, weapon.dismember_force * 12.0, weapon.splash_radius * 1.5)
 	if was_dead:
 		# Кровь от взрыва по трупу (урон и отрывы уже посчитаны в apply_splash).
 		_spawn_blood_burst(blast_pos, Vector3.UP, _blood_count_for(weapon.splash_damage))
@@ -770,7 +770,11 @@ func _spawn_stump_decal(zone: String) -> void:
 	var nrm := pos - (enemy.global_position + Vector3(0, 0.9, 0))
 	if nrm.length() < 0.001:
 		nrm = Vector3.UP
-	decal_pool.spawn(pos, nrm.normalized(), stump, 0.28)
+	nrm = nrm.normalized()
+	# Несколько крупных пятен с разбросом, чтобы срез был сочно залит и читался.
+	for i in 3:
+		var jitter := Vector3(randf_range(-0.05, 0.05), randf_range(-0.05, 0.05), randf_range(-0.05, 0.05))
+		decal_pool.spawn(pos + jitter, nrm, stump, randf_range(0.35, 0.5))
 
 # ─────────────────────────────────────────────────────────────
 # UI CALLBACKS

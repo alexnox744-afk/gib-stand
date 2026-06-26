@@ -83,6 +83,7 @@ func _attach_model() -> void:
 	add_child(_glb_root)
 	_skeleton = _find_skeleton(_glb_root)
 	_simulator = _find_simulator(_glb_root)
+	_tune_ragdoll_weight()
 	# Модификатор-пряталка конечностей: добавляем последним ребёнком скелета,
 	# чтобы в стеке модификаторов он шёл ПОСЛЕ PhysicalBoneSimulator3D.
 	if _skeleton != null:
@@ -367,6 +368,21 @@ func _do_ragdoll_fall() -> void:
 	if _simulator == null:
 		return
 	_simulator.physical_bones_start_simulation()
+
+# Утяжеляем кости регдола: в сцене масса не задана (дефолт 1 — «пушинка»).
+# Больше масса + гравитация + демпфирование = труп падает весомо и не
+# трясётся как тряпка.
+func _tune_ragdoll_weight() -> void:
+	if _simulator == null:
+		return
+	for child in _simulator.get_children():
+		if not (child is PhysicalBone3D):
+			continue
+		var pb := child as PhysicalBone3D
+		pb.mass = 3.0
+		pb.gravity_scale = 1.5
+		pb.linear_damp = 0.3
+		pb.angular_damp = 2.0
 
 # Тело разорвано взрывом: гасим регдол и прячем модель, дальше показываем только гибсы.
 func gib() -> void:
