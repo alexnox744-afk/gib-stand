@@ -34,10 +34,11 @@ func _fill_pool() -> void:
 		add_child(d)
 		_pool.append(d)
 
-func spawn(pos: Vector3, normal: Vector3) -> void:
+func spawn(pos: Vector3, normal: Vector3, target: Node3D = null) -> void:
 	var d: Decal
 	if _pool.is_empty():
 		d = _active.pop_front()
+		_return_to_self(d)
 	else:
 		d = _pool.pop_back()
 
@@ -60,8 +61,21 @@ func spawn(pos: Vector3, normal: Vector3) -> void:
 	d.visible = true
 	_active.append(d)
 
+	# Reparent to the hit bone so the decal follows the body into ragdoll.
+	# global_transform is already set, so reparent(keep=true) bakes the right
+	# local transform relative to the new parent.
+	if target != null and is_instance_valid(target):
+		d.reparent(target, true)
+
+func _return_to_self(d: Decal) -> void:
+	if d.get_parent() != self:
+		d.reparent(self, false)
+
 func clear_all() -> void:
 	for d in _active:
+		if not is_instance_valid(d):
+			continue
+		_return_to_self(d)
 		d.visible = false
 		_pool.append(d)
 	_active.clear()

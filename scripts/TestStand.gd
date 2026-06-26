@@ -413,6 +413,10 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 
 	sound_log.play(weapon.impact_sound)
 
+	# BoneAttachment3D that tracks the hit zone's bone — decals parented here
+	# follow the body as it ragdolls instead of staying frozen in world-space.
+	var bone_target: Node3D = enemy.zone_nodes.get(zone) as Node3D
+
 	if result.get("severed", false):
 		sound_log.play("sever_squelch")
 		enemy.impulse_limb(zone, shot_dir, weapon.dismember_force)
@@ -420,6 +424,8 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 		_spawn_blood_cloud(hit_pos, 0.2)
 		if enable_decals:
 			for i in 3:
+				# No bone_target: severed bone is already collapsed to scale 0.001,
+				# a child decal would inherit that scale and become invisible.
 				decal_pool.spawn(
 					hit_pos + Vector3(randf_range(-0.08, 0.08), randf_range(-0.08, 0.08), 0.0),
 					hit_normal)
@@ -435,15 +441,15 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 		_spawn_blood_burst(hit_pos + Vector3(0, 0.3, 0), shot_dir, 28)
 		_spawn_blood_cloud(hit_pos + Vector3(0, 0.5, 0), 0.3)
 		if enable_decals:
-			decal_pool.spawn(hit_pos, hit_normal)
+			decal_pool.spawn(hit_pos, hit_normal, bone_target)
 	else:
 		_spawn_blood_burst(hit_pos, hit_normal, 10)
 		if enable_decals:
-			decal_pool.spawn(hit_pos, hit_normal)
+			decal_pool.spawn(hit_pos, hit_normal, bone_target)
 			if randf() > 0.55:
 				decal_pool.spawn(
 					hit_pos + Vector3(randf_range(-0.12, 0.12), randf_range(-0.1, 0.1), 0.0),
-					hit_normal)
+					hit_normal, bone_target)
 
 	hit_info_panel.update_hit(result)
 
