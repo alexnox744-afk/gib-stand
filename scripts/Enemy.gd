@@ -14,6 +14,10 @@ var hitbox_debug_nodes: Dictionary = {}
 var detached_limbs: Array[RigidBody3D] = []
 # Все Area3D-хитбоксы плоским списком (включает оба torso-хитбокса)
 var all_hitboxes: Array[Area3D] = []
+# Все дебаг-оверлеи плоским списком. Нужен отдельно от hitbox_debug_nodes,
+# т.к. словарь ключуется по зоне, а таз и торс делят зону "torso" — в словаре
+# выживает только один, и оверлей таза иначе не подсвечивался бы тогглом.
+var all_hitbox_debug_nodes: Array[MeshInstance3D] = []
 
 var health: HealthComponent
 var is_ragdoll: bool = false
@@ -100,6 +104,7 @@ func _scan_node_for_hitboxes(node: Node) -> void:
 		if dbg != null:
 			area.add_child(dbg)
 			hitbox_debug_nodes[zone] = dbg
+			all_hitbox_debug_nodes.append(dbg)
 	for child in node.get_children():
 		_scan_node_for_hitboxes(child)
 

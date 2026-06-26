@@ -605,8 +605,10 @@ func _on_reset() -> void:
 
 func _on_hitbox_toggle(enabled: bool) -> void:
 	show_hitboxes = enabled
-	for zone in enemy.hitbox_debug_nodes:
-		enemy.hitbox_debug_nodes[zone].visible = enabled
+	# Идём по плоскому списку, а не по словарю зон: иначе оверлей таза (зона
+	# "torso", затёртая торсом в словаре) никогда не подсвечивался бы.
+	for dbg in enemy.all_hitbox_debug_nodes:
+		dbg.visible = enabled
 
 # Враг истёк кровью после отрыва (голова/рука) — даём звук и брызги в момент,
 # когда тело наконец падает, чтобы отложенная смерть читалась как смерть.
