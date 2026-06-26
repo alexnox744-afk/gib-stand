@@ -11,9 +11,9 @@ config_version=5
 [application]
 
 config/name="GibStand"
+run/main_scene="res://scenes/TestStand.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
-run/main_scene="res://scenes/TestStand.tscn"
 
 [physics]
 
