@@ -1,7 +1,7 @@
 class_name DecalPool
 extends Node3D
 
-const MAX_DECALS := 120
+const MAX_DECALS := 240
 
 # Приоритет вытеснения при переполнении: дешёвые пятна на полу уходят первыми,
 # раны на теле и культи держатся дольше всех.

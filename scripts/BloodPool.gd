@@ -85,7 +85,7 @@ func _process(delta: float) -> void:
 			# Приземлилась — пятно на полу и обратно в пул.
 			if enable_specks and bool(d["can_speck"]) and decal_pool != null and randf() < FLOOR_SPECK_CHANCE:
 				decal_pool.spawn(Vector3(mi.global_position.x, FLOOR_Y, mi.global_position.z),
-					Vector3.UP, null, randf_range(0.05, 0.12), DecalPool.PRIO_LOW)
+					Vector3.UP, null, randf_range(0.14, 0.28), DecalPool.PRIO_LOW)
 			_retire(i)
 		elif float(d["t"]) >= float(d["life"]):
 			_retire(i)

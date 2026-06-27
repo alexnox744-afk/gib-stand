@@ -529,7 +529,7 @@ func _hit_detached_limb(area: Area3D, raycast_result: Dictionary, weapon: Weapon
 	var pulverized := limb.take_hit(shot_dir, weapon.damage, weapon.dismember_force)
 	if pulverized:
 		sound_log.play("gib_explosion")
-		gibs_pool.spawn_gibs(limb.global_position, shot_dir, weapon.dismember_force, 6)
+		gibs_pool.spawn_gibs(limb.global_position, shot_dir, weapon.dismember_force, 3)
 		_spawn_blood_burst(hit_pos, shot_dir, 14)
 		_spawn_blood_cloud(hit_pos, 0.2)
 		decal_pool.reclaim_from(limb)   # вернуть пятна крови в пул до queue_free
@@ -557,7 +557,7 @@ func _splash_detached_limbs(blast_pos: Vector3, weapon: WeaponData) -> void:
 			dir = Vector3.UP
 		var pulverized := dl.take_hit(dir, weapon.splash_damage * falloff, weapon.dismember_force * falloff)
 		if pulverized:
-			gibs_pool.spawn_gibs(dl.global_position, dir, weapon.dismember_force, 6)
+			gibs_pool.spawn_gibs(dl.global_position, dir, weapon.dismember_force, 3)
 			_spawn_blood_burst(dl.global_position, Vector3.UP, 10)
 			decal_pool.reclaim_from(dl)   # вернуть пятна крови в пул до queue_free
 			enemy.remove_detached_limb(dl)
