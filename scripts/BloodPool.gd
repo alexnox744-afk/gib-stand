@@ -13,6 +13,7 @@ const FLOOR_Y := 0.01
 const FLOOR_SPECK_CHANCE := 0.6
 
 var decal_pool: DecalPool   # для пятен в точке приземления (может быть null)
+var enable_specks: bool = true   # синхронно с тумблером Decals в UI
 
 var _pool: Array[MeshInstance3D] = []
 var _active: Array[Dictionary] = []
@@ -44,6 +45,11 @@ func spawn_burst(pos: Vector3, dir: Vector3, count: int) -> void:
 			randf_range(-0.7, 0.7)
 		)).normalized()
 		_spawn_one(pos, spread * randf_range(1.5, 6.0))
+
+# Одиночная капля, срывающаяся с летящего гиба — почти без горизонтальной
+# скорости, в основном падает вниз и оставляет пятно на полу.
+func drip(pos: Vector3) -> void:
+	_spawn_one(pos, Vector3(randf_range(-0.3, 0.3), randf_range(-0.4, 0.1), randf_range(-0.3, 0.3)))
 
 func _spawn_one(pos: Vector3, vel: Vector3) -> void:
 	var mi: MeshInstance3D
@@ -77,7 +83,7 @@ func _process(delta: float) -> void:
 
 		if mi.global_position.y <= FLOOR_Y and vel.y < 0.0:
 			# Приземлилась — пятно на полу и обратно в пул.
-			if bool(d["can_speck"]) and decal_pool != null and randf() < FLOOR_SPECK_CHANCE:
+			if enable_specks and bool(d["can_speck"]) and decal_pool != null and randf() < FLOOR_SPECK_CHANCE:
 				decal_pool.spawn(Vector3(mi.global_position.x, FLOOR_Y, mi.global_position.z),
 					Vector3.UP, null, randf_range(0.05, 0.12), DecalPool.PRIO_LOW)
 			_retire(i)

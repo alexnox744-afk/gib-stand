@@ -6,6 +6,7 @@ const SLEEP_AFTER := 4.5
 
 var _pool: Array[RigidBody3D] = []
 var _active: Array[Dictionary] = []
+var blood_pool: BloodPool   # для кровавого следа от летящих гибов (может быть null)
 
 func _ready() -> void:
 	_fill_pool()
@@ -101,7 +102,7 @@ func spawn_gibs(origin: Vector3, direction: Vector3, force: float, count: int = 
 		rb.apply_central_impulse(spread * force * randf_range(0.5, 1.5))
 		rb.apply_torque_impulse(Vector3(randf_range(-5, 5), randf_range(-5, 5), randf_range(-5, 5)))
 
-		_active.append({"rb": rb, "timer": SLEEP_AFTER})
+		_active.append({"rb": rb, "timer": SLEEP_AFTER, "drip": randf_range(0.03, 0.1)})
 
 func _process(delta: float) -> void:
 	var done := []
@@ -109,6 +110,15 @@ func _process(delta: float) -> void:
 		entry["timer"] -= delta
 		if entry["timer"] <= 0:
 			done.append(entry)
+			continue
+		# Кровавый след: пока гиб быстро летит, роняет капли по траектории.
+		if blood_pool != null:
+			var rb: RigidBody3D = entry["rb"]
+			entry["drip"] = float(entry["drip"]) - delta
+			if float(entry["drip"]) <= 0.0:
+				entry["drip"] = randf_range(0.03, 0.1)
+				if rb.linear_velocity.length() > 1.5:
+					blood_pool.drip(rb.global_position)
 	for entry in done:
 		_active.erase(entry)
 		var rb: RigidBody3D = entry["rb"]

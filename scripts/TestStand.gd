@@ -207,6 +207,7 @@ func _build_scene() -> void:
 	blood_pool.name = "BloodPool"
 	blood_pool.decal_pool = decal_pool
 	add_child(blood_pool)
+	gibs_pool.blood_pool = blood_pool   # кровавый след от летящих гибов
 
 	sound_log = SoundLog.new()
 	sound_log.name = "SoundLog"
@@ -288,7 +289,9 @@ func _build_ui() -> void:
 	decal_toggle = CheckButton.new()
 	decal_toggle.text = "Decals"
 	decal_toggle.set_pressed_no_signal(true)
-	decal_toggle.toggled.connect(func(v: bool): enable_decals = v)
+	decal_toggle.toggled.connect(func(v: bool):
+		enable_decals = v
+		blood_pool.enable_specks = v)
 	debug_vb.add_child(decal_toggle)
 
 	auto_fire_toggle = CheckButton.new()
@@ -657,9 +660,8 @@ func _blood_decal_size_for(damage: float) -> float:
 	return lerpf(0.1, 0.45, _blood_ratio(damage))
 
 func _spawn_blood_burst(pos: Vector3, dir: Vector3, count: int) -> void:
-	# Пул капель сам считает баллистику и роняет пятна на пол. Бюджет декалей
-	# тратится только если включены (пул сам спавнит через свой decal_pool).
-	blood_pool.decal_pool = decal_pool if enable_decals else null
+	# Пул сам считает баллистику и роняет пятна на пол (через свой decal_pool,
+	# под флагом enable_specks, синхронным с тумблером Decals).
 	blood_pool.spawn_burst(pos, dir, mini(count, 32))
 
 func _spawn_blood_cloud(pos: Vector3, radius: float) -> void:
