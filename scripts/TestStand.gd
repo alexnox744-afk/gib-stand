@@ -529,10 +529,14 @@ func _hit_detached_limb(area: Area3D, raycast_result: Dictionary, weapon: Weapon
 		gibs_pool.spawn_gibs(limb.global_position, shot_dir, weapon.dismember_force, 6)
 		_spawn_blood_burst(hit_pos, shot_dir, 14)
 		_spawn_blood_cloud(hit_pos, 0.2)
+		decal_pool.reclaim_from(limb)   # вернуть пятна крови в пул до queue_free
 		enemy.remove_detached_limb(limb)
 	else:
 		_spawn_blood_burst(hit_pos, shot_dir, _blood_count_for(weapon.damage))
 		_spawn_blood_cloud(hit_pos, _blood_cloud_radius_for(weapon.damage))
+		# Пятно крови на самой конечности — едет с ней (вернётся в пул при перемоле).
+		if enable_decals and _blood_ratio(weapon.damage) >= BLOOD_DECAL_MIN_RATIO:
+			decal_pool.spawn(hit_pos, hit_normal, limb, _blood_decal_size_for(weapon.damage))
 
 # Взрыв разносит и лежащие конечности в радиусе: толчок + возможный перемол.
 func _splash_detached_limbs(blast_pos: Vector3, weapon: WeaponData) -> void:
@@ -552,6 +556,7 @@ func _splash_detached_limbs(blast_pos: Vector3, weapon: WeaponData) -> void:
 		if pulverized:
 			gibs_pool.spawn_gibs(dl.global_position, dir, weapon.dismember_force, 6)
 			_spawn_blood_burst(dl.global_position, Vector3.UP, 10)
+			decal_pool.reclaim_from(dl)   # вернуть пятна крови в пул до queue_free
 			enemy.remove_detached_limb(dl)
 
 func _raycast(mouse_pos: Vector2) -> Dictionary:
@@ -766,10 +771,12 @@ func _on_weapon_selected(idx: int, btn: Button) -> void:
 	btn.set_pressed_no_signal(true)
 
 func _on_reset() -> void:
-	enemy.reset()
-	gibs_pool.clear_all()
+	# Декали возвращаем в пул ДО enemy.reset(): иначе queue_free конечностей с
+	# прицепленными пятнами утащит их из пула.
 	decal_pool.clear_all()
 	blood_pool.clear_all()
+	enemy.reset()
+	gibs_pool.clear_all()
 	hit_info_panel.update_hit({})
 	_on_hitbox_toggle(show_hitboxes)
 

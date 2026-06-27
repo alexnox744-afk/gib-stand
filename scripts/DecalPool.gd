@@ -90,6 +90,21 @@ func _evict() -> Decal:
 				return _active.pop_at(i)
 	return _active.pop_front()
 
+# Возвращаем в пул все активные декали, прицепленные к узлу, ПЕРЕД его
+# удалением — иначе queue_free родителя утащит их с собой и слоты пула утекут.
+func reclaim_from(node: Node3D) -> void:
+	if node == null:
+		return
+	var i := _active.size() - 1
+	while i >= 0:
+		var d := _active[i]
+		if is_instance_valid(d) and node.is_ancestor_of(d):
+			_active.remove_at(i)
+			d.reparent(self, false)
+			d.visible = false
+			_pool.append(d)
+		i -= 1
+
 func _return_to_self(d: Decal) -> void:
 	if d.get_parent() != self:
 		d.reparent(self, false)
