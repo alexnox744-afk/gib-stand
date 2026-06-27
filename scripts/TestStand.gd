@@ -437,6 +437,8 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 	var hit_normal: Vector3 = raycast_result["normal"]
 	var cam := _get_camera()
 	var shot_dir := (hit_pos - cam.global_position).normalized()
+	# BoneAttachment3D зоны — декали на нём едут за телом и в стойке, и в регдоле.
+	var bone_target: Node3D = enemy.zone_nodes.get(zone) as Node3D
 
 	var result := enemy.apply_hit(zone, shot_dir, weapon)
 
@@ -445,8 +447,6 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 		if enemy.is_ragdoll:
 			# Пуля физически толкает труп в точке попадания.
 			enemy.apply_ragdoll_impulse_at(hit_pos, shot_dir, weapon.dismember_force * 3.0)
-			# BoneAttachment3D зоны: декаль на нём поедет за оседающим трупом.
-			var bone_target: Node3D = enemy.zone_nodes.get(zone) as Node3D
 			var cr := enemy.apply_corpse_hit(zone, weapon)
 			if cr.get("severed", false):
 				sound_log.play("sever_squelch")
@@ -468,10 +468,6 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 		return
 
 	sound_log.play(weapon.impact_sound)
-
-	# BoneAttachment3D that tracks the hit zone's bone — decals parented here
-	# follow the body as it ragdolls instead of staying frozen in world-space.
-	var bone_target: Node3D = enemy.zone_nodes.get(zone) as Node3D
 
 	# Кровь от удара — ЕДИНЫЙ источник: всплеск разрыва при отрыве, иначе формула
 	# по доле урона. Смерть/оверкилл больше НЕ добавляют свою «спецкровь».
