@@ -395,12 +395,13 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 	var body_center := enemy.global_position + Vector3(0, 0.9, 0)
 	var blast_dir := (body_center - blast_pos).normalized()
 
+	var dealt := hp_before - enemy.health.current_hp
 	if enemy.health.is_dead:
 		sound_log.play("gib_explosion")
 		enemy.gib()
 		_trigger_gibs(enemy.global_position, blast_dir, weapon)
-		_spawn_blood_burst(body_center, blast_dir, 24)
-		_spawn_blood_cloud(body_center, 0.5)
+		_spawn_blood_burst(body_center, blast_dir, _blood_count_for(hp_before))
+		_spawn_blood_cloud(body_center, _blood_cloud_radius_for(hp_before))
 		hit_info_panel.update_hit({
 			"zone": "blast", "damage": hp_before,
 			"total_hp_before": hp_before, "total_hp_after": 0.0,
@@ -408,8 +409,8 @@ func _splash_shot(mouse_pos: Vector2, weapon: WeaponData) -> void:
 		})
 	elif enemy.health.current_hp < hp_before:
 		sound_log.play("explosion_meat")
-		_spawn_blood_burst(blast_pos, Vector3.UP, 16)
-		_spawn_blood_cloud(blast_pos, 0.3)
+		_spawn_blood_burst(blast_pos, Vector3.UP, _blood_count_for(dealt))
+		_spawn_blood_cloud(blast_pos, _blood_cloud_radius_for(dealt))
 
 func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void:
 	var area: Area3D = raycast_result.get("collider")
@@ -461,6 +462,8 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 	# follow the body as it ragdolls instead of staying frozen in world-space.
 	var bone_target: Node3D = enemy.zone_nodes.get(zone) as Node3D
 
+	# Кровь от удара — ЕДИНЫЙ источник: всплеск разрыва при отрыве, иначе формула
+	# по доле урона. Смерть/оверкилл больше НЕ добавляют свою «спецкровь».
 	if result.get("severed", false):
 		sound_log.play("sever_squelch")
 		enemy.impulse_limb(zone, shot_dir, weapon.dismember_force)
@@ -474,19 +477,6 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 				decal_pool.spawn(
 					hit_pos + Vector3(randf_range(-0.08, 0.08), randf_range(-0.08, 0.08), 0.0),
 					hit_normal)
-
-	if result.get("overkill", false):
-		sound_log.play("gib_explosion")
-		var body_center := enemy.global_position + Vector3(0, 0.9, 0)
-		_trigger_gibs(hit_pos, shot_dir, weapon)
-		_spawn_blood_burst(body_center, shot_dir, 22)
-		_spawn_blood_cloud(body_center, 0.5)
-	elif result.get("died", false):
-		sound_log.play("zombie_death")
-		_spawn_blood_burst(hit_pos + Vector3(0, 0.3, 0), shot_dir, 28)
-		_spawn_blood_cloud(hit_pos + Vector3(0, 0.5, 0), 0.3)
-		if enable_decals:
-			decal_pool.spawn(hit_pos, hit_normal, bone_target)
 	else:
 		_spawn_blood_burst(hit_pos, shot_dir, _blood_count_for(result["damage"]))
 		_spawn_blood_cloud(hit_pos, _blood_cloud_radius_for(result["damage"]))
@@ -497,6 +487,13 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 				decal_pool.spawn(
 					hit_pos + Vector3(randf_range(-0.12, 0.12), randf_range(-0.1, 0.1), 0.0),
 					hit_normal, bone_target, dsize * 0.7)
+
+	# Событие смерти — только звук и гибы, без отдельной «спецкрови».
+	if result.get("overkill", false):
+		sound_log.play("gib_explosion")
+		_trigger_gibs(hit_pos, shot_dir, weapon)
+	elif result.get("died", false):
+		sound_log.play("zombie_death")
 
 	hit_info_panel.update_hit(result)
 
@@ -825,9 +822,15 @@ func _on_hitbox_toggle(enabled: bool) -> void:
 # когда тело наконец падает, чтобы отложенная смерть читалась как смерть.
 func _on_enemy_bled_out() -> void:
 	sound_log.play("zombie_death")
-	var c := enemy.global_position + Vector3(0, 1.0, 0)
-	_spawn_blood_burst(c, Vector3.UP, 14)
-	_spawn_blood_cloud(c, 0.3)
+	# Вместо отдельного предсмертного всплеска — финальная лужа под телом
+	# (дальше труп-регдол ещё досачивает её сам через _update_stump_bleeding).
+	if enable_decals:
+		var torso: Node3D = enemy.zone_nodes.get("torso")
+		if torso != null:
+			var tp := torso.global_position
+			for i in 3:
+				var off := Vector3(randf_range(-0.15, 0.15), 0.0, randf_range(-0.15, 0.15))
+				decal_pool.spawn(Vector3(tp.x + off.x, 0.02, tp.z + off.z), Vector3.UP, null, randf_range(0.35, 0.5))
 
 # ─────────────────────────────────────────────────────────────
 # PROCESS
