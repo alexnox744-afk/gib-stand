@@ -3,6 +3,12 @@ extends Node3D
 
 const MAX_DECALS := 120
 
+# Приоритет вытеснения при переполнении: дешёвые пятна на полу уходят первыми,
+# раны на теле и культи держатся дольше всех.
+const PRIO_LOW := 0      # капельные пятна на полу
+const PRIO_NORMAL := 1   # лужи под телом
+const PRIO_HIGH := 2     # раны на теле, культи
+
 var _pool: Array[Decal] = []
 var _active: Array[Decal] = []
 var _albedo: GradientTexture2D
@@ -34,13 +40,14 @@ func _fill_pool() -> void:
 		add_child(d)
 		_pool.append(d)
 
-func spawn(pos: Vector3, normal: Vector3, target: Node3D = null, size: float = -1.0) -> void:
+func spawn(pos: Vector3, normal: Vector3, target: Node3D = null, size: float = -1.0, priority: int = PRIO_NORMAL) -> void:
 	var d: Decal
 	if _pool.is_empty():
-		d = _active.pop_front()
+		d = _evict()
 		_return_to_self(d)
 	else:
 		d = _pool.pop_back()
+	d.set_meta("prio", priority)
 
 	# Build a basis whose local +Y aligns with the surface normal,
 	# because a Decal projects along its local Y axis.
@@ -72,6 +79,16 @@ func spawn(pos: Vector3, normal: Vector3, target: Node3D = null, size: float = -
 	# local transform relative to the new parent.
 	if target != null and is_instance_valid(target):
 		d.reparent(target, true)
+
+# Выбираем, какую активную декаль переиспользовать при переполнении: сначала
+# самую старую дешёвую (пятно на полу), затем лужу, раны трогаем в последнюю
+# очередь — так стены ран не «съедаются» брызгами.
+func _evict() -> Decal:
+	for prio in [PRIO_LOW, PRIO_NORMAL]:
+		for i in _active.size():
+			if int(_active[i].get_meta("prio", PRIO_NORMAL)) == prio:
+				return _active.pop_at(i)
+	return _active.pop_front()
 
 func _return_to_self(d: Decal) -> void:
 	if d.get_parent() != self:

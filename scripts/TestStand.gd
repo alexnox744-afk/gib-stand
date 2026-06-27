@@ -461,7 +461,7 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 				_spawn_blood_burst(hit_pos, shot_dir, _blood_count_for(weapon.damage))
 				_spawn_blood_cloud(hit_pos, _blood_cloud_radius_for(weapon.damage))
 				if enable_decals and _blood_ratio(weapon.damage) >= BLOOD_DECAL_MIN_RATIO:
-					decal_pool.spawn(hit_pos, hit_normal, bone_target, _blood_decal_size_for(weapon.damage))
+					decal_pool.spawn(hit_pos, hit_normal, bone_target, _blood_decal_size_for(weapon.damage), DecalPool.PRIO_HIGH)
 		return
 
 	sound_log.play(weapon.impact_sound)
@@ -490,11 +490,11 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 		_spawn_blood_cloud(hit_pos, _blood_cloud_radius_for(result["damage"]))
 		if enable_decals and _blood_ratio(result["damage"]) >= BLOOD_DECAL_MIN_RATIO:
 			var dsize := _blood_decal_size_for(result["damage"])
-			decal_pool.spawn(hit_pos, hit_normal, bone_target, dsize)
+			decal_pool.spawn(hit_pos, hit_normal, bone_target, dsize, DecalPool.PRIO_HIGH)
 			if randf() > 0.55:
 				decal_pool.spawn(
 					hit_pos + Vector3(randf_range(-0.12, 0.12), randf_range(-0.1, 0.1), 0.0),
-					hit_normal, bone_target, dsize * 0.7)
+					hit_normal, bone_target, dsize * 0.7, DecalPool.PRIO_HIGH)
 
 	# Событие смерти — только звук и гибы, без отдельной «спецкрови».
 	if result.get("overkill", false):
@@ -753,7 +753,7 @@ func _spawn_stump_decal(zone: String) -> void:
 	# Несколько крупных пятен с разбросом, чтобы срез был сочно залит и читался.
 	for i in 3:
 		var jitter := Vector3(randf_range(-0.05, 0.05), randf_range(-0.05, 0.05), randf_range(-0.05, 0.05))
-		decal_pool.spawn(pos + jitter, nrm, stump, randf_range(0.35, 0.5))
+		decal_pool.spawn(pos + jitter, nrm, stump, randf_range(0.35, 0.5), DecalPool.PRIO_HIGH)
 
 # ─────────────────────────────────────────────────────────────
 # UI CALLBACKS
