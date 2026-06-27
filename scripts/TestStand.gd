@@ -10,6 +10,7 @@ var enemy: Enemy
 var orbit_camera: OrbitCamera
 var gibs_pool: GibsPool
 var decal_pool: DecalPool
+var blood_pool: BloodPool
 var sound_log: SoundLog
 var hit_info_panel: HitInfoPanel
 
@@ -201,6 +202,11 @@ func _build_scene() -> void:
 	decal_pool = DecalPool.new()
 	decal_pool.name = "DecalPool"
 	add_child(decal_pool)
+
+	blood_pool = BloodPool.new()
+	blood_pool.name = "BloodPool"
+	blood_pool.decal_pool = decal_pool
+	add_child(blood_pool)
 
 	sound_log = SoundLog.new()
 	sound_log.name = "SoundLog"
@@ -646,60 +652,10 @@ func _blood_decal_size_for(damage: float) -> float:
 	return lerpf(0.1, 0.45, _blood_ratio(damage))
 
 func _spawn_blood_burst(pos: Vector3, dir: Vector3, count: int) -> void:
-	# Shared mesh + material for all drops in this burst
-	var shared_mat := StandardMaterial3D.new()
-	shared_mat.albedo_color = Color(0.72, 0.05, 0.05)
-	shared_mat.roughness = 0.9
-	var shared_mesh := SphereMesh.new()
-	shared_mesh.radius = 0.02
-	shared_mesh.height = 0.04
-	shared_mesh.material = shared_mat
-
-	var spawn_count := mini(count, 32)
-	for _i in spawn_count:
-		var mi := MeshInstance3D.new()
-		mi.mesh = shared_mesh
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(mi)
-		mi.global_position = pos
-
-		# Базовое направление — вдоль пули (выходное отверстие), плюс конус
-		# разброса. Вес 1.5 у dir, чтобы выстрел читался, а не размазывался.
-		var spread_dir := (dir.normalized() * 1.5 + Vector3(
-			randf_range(-0.7, 0.7),
-			randf_range(-0.3, 0.7),
-			randf_range(-0.7, 0.7)
-		)).normalized()
-		var speed := randf_range(1.5, 6.0)
-		var fly_time := randf_range(0.3, 0.6)
-		var end_pos := pos + spread_dir * speed * fly_time + Vector3(0, -5.0 * fly_time * fly_time, 0)
-
-		# Если траектория уходит под пол — капля приземляется на платформу и
-		# оставляет там мини-пятно, вместо растворения в воздухе.
-		var lands := pos.y > 0.05 and end_pos.y < 0.0
-		var land_pt := end_pos
-		var travel := fly_time
-		if lands:
-			var t_floor := pos.y / (pos.y - end_pos.y)
-			land_pt = pos.lerp(end_pos, t_floor)
-			land_pt.y = 0.01
-			travel = fly_time * t_floor
-
-		var tween := create_tween()
-		tween.set_parallel(true)
-		tween.tween_property(mi, "global_position", land_pt, travel)
-		if lands:
-			tween.tween_property(mi, "scale", Vector3.ZERO, 0.08).set_delay(travel)
-			get_tree().create_timer(travel + 0.12).timeout.connect(mi.queue_free)
-			# Не каждая капля — бережём бюджет декалей.
-			if enable_decals and randf() < 0.6:
-				get_tree().create_timer(travel).timeout.connect(_drop_floor_speck.bind(land_pt))
-		else:
-			tween.tween_property(mi, "scale", Vector3.ZERO, fly_time * 0.45).set_delay(fly_time * 0.55)
-			get_tree().create_timer(fly_time + 0.1).timeout.connect(mi.queue_free)
-
-func _drop_floor_speck(at: Vector3) -> void:
-	decal_pool.spawn(at, Vector3.UP, null, randf_range(0.05, 0.12))
+	# Пул капель сам считает баллистику и роняет пятна на пол. Бюджет декалей
+	# тратится только если включены (пул сам спавнит через свой decal_pool).
+	blood_pool.decal_pool = decal_pool if enable_decals else null
+	blood_pool.spawn_burst(pos, dir, mini(count, 32))
 
 func _spawn_blood_cloud(pos: Vector3, radius: float) -> void:
 	var mi := MeshInstance3D.new()
@@ -813,6 +769,7 @@ func _on_reset() -> void:
 	enemy.reset()
 	gibs_pool.clear_all()
 	decal_pool.clear_all()
+	blood_pool.clear_all()
 	hit_info_panel.update_hit({})
 	_on_hitbox_toggle(show_hitboxes)
 
