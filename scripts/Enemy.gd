@@ -280,6 +280,24 @@ func apply_ragdoll_explosion(blast_pos: Vector3, force: float, radius: float) ->
 			dir = Vector3.UP
 		pb.apply_central_impulse((dir + Vector3.UP * 0.4) * force * falloff)
 
+# Пуля толкает ближайшую к точке попадания физкость регдола — в самой точке
+# удара, чтобы тело крутануло от выстрела. No-op, пока враг кинематичен (не труп).
+func apply_ragdoll_impulse_at(world_pos: Vector3, dir: Vector3, force: float) -> void:
+	if not is_ragdoll or _simulator == null:
+		return
+	var best: PhysicalBone3D = null
+	var best_dist := INF
+	for child in _simulator.get_children():
+		if not (child is PhysicalBone3D):
+			continue
+		var pb := child as PhysicalBone3D
+		var d := pb.global_position.distance_to(world_pos)
+		if d < best_dist:
+			best_dist = d
+			best = pb
+	if best != null:
+		best.apply_impulse(dir.normalized() * force, world_pos - best.global_position)
+
 func _on_zone_severed(zone: String) -> void:
 	var node: Node3D = zone_nodes.get(zone)
 	if node == null:

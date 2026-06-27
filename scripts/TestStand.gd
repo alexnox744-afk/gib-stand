@@ -434,6 +434,8 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 	# Dead ragdoll — try limb detachment, at least blood
 	if result.is_empty():
 		if enemy.is_ragdoll:
+			# Пуля физически толкает труп в точке попадания.
+			enemy.apply_ragdoll_impulse_at(hit_pos, shot_dir, weapon.dismember_force * 3.0)
 			# BoneAttachment3D зоны: декаль на нём поедет за оседающим трупом.
 			var bone_target: Node3D = enemy.zone_nodes.get(zone) as Node3D
 			var cr := enemy.apply_corpse_hit(zone, weapon)
@@ -496,6 +498,9 @@ func _process_single_hit(raycast_result: Dictionary, weapon: WeaponData) -> void
 		sound_log.play("zombie_death")
 
 	hit_info_panel.update_hit(result)
+
+	# Убивающий удар толкает тело в регдол (no-op, пока враг ещё жив/кинематичен).
+	enemy.apply_ragdoll_impulse_at(hit_pos, shot_dir, weapon.dismember_force * 3.0)
 
 	if enable_shake and (result.get("overkill") or result.get("severed")):
 		_camera_shake(0.15)
