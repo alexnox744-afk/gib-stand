@@ -9,6 +9,17 @@ const PRIO_LOW := 0      # капельные пятна на полу
 const PRIO_NORMAL := 1   # лужи под телом
 const PRIO_HIGH := 2     # раны на теле, культи
 
+# Подсыхание: свежая кровь ярче и краснее, со временем темнеет в бурую, под
+# конец жизни тускнеет в ноль и декаль уходит обратно в пул.
+const DRY_TIME := 4.0                       # за сколько секунд кровь «подсыхает»
+const FADE_TIME := 2.0                      # затухание в конце жизни
+const FRESH_MOD := Color(1.3, 1.0, 1.0)     # свежая — ярче-краснее
+const DRY_MOD := Color(0.5, 0.42, 0.38)     # подсохшая — тёмная бурая
+# Сколько живёт декаль до возврата в пул — важные держатся дольше.
+const LIFE_LOW := 8.0
+const LIFE_NORMAL := 16.0
+const LIFE_HIGH := 30.0
+
 var _pool: Array[Decal] = []
 var _active: Array[Decal] = []
 var _albedo: GradientTexture2D
@@ -16,6 +27,41 @@ var _albedo: GradientTexture2D
 func _ready() -> void:
 	_albedo = _make_blob_texture()
 	_fill_pool()
+
+func _life_for(priority: int) -> float:
+	match priority:
+		PRIO_LOW:
+			return LIFE_LOW
+		PRIO_HIGH:
+			return LIFE_HIGH
+		_:
+			return LIFE_NORMAL
+
+# Старение крови: подсыхание цвета, затем затухание и возврат в пул.
+func _process(delta: float) -> void:
+	var i := _active.size() - 1
+	while i >= 0:
+		var d := _active[i]
+		if not is_instance_valid(d):
+			_active.remove_at(i)
+			i -= 1
+			continue
+		var age := float(d.get_meta("age", 0.0)) + delta
+		d.set_meta("age", age)
+		var mod := FRESH_MOD.lerp(DRY_MOD, clampf(age / DRY_TIME, 0.0, 1.0))
+		var max_life := float(d.get_meta("max_life", LIFE_NORMAL))
+		if age >= max_life:
+			var f := (age - max_life) / FADE_TIME
+			if f >= 1.0:
+				_active.remove_at(i)
+				_return_to_self(d)
+				d.visible = false
+				_pool.append(d)
+				i -= 1
+				continue
+			mod.a = 1.0 - f
+		d.modulate = mod
+		i -= 1
 
 func _make_blob_texture() -> GradientTexture2D:
 	# Soft radial dark-red splat, generated so decals are visible without art.
@@ -48,6 +94,9 @@ func spawn(pos: Vector3, normal: Vector3, target: Node3D = null, size: float = -
 	else:
 		d = _pool.pop_back()
 	d.set_meta("prio", priority)
+	d.set_meta("age", 0.0)
+	d.set_meta("max_life", _life_for(priority))
+	d.modulate = FRESH_MOD
 
 	# Build a basis whose local +Y aligns with the surface normal,
 	# because a Decal projects along its local Y axis.
