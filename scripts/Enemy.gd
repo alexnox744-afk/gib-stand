@@ -394,10 +394,24 @@ func _tune_ragdoll_weight() -> void:
 		if not (child is PhysicalBone3D):
 			continue
 		var pb := child as PhysicalBone3D
-		pb.mass = 3.0
-		pb.gravity_scale = 1.5
-		pb.linear_damp = 0.3
-		pb.angular_damp = 2.0
+		# Вес и инерция — тело ощущается тяжёлым, а не пушинкой.
+		pb.mass = 5.0
+		pb.gravity_scale = 1.0
+		pb.linear_damp = 0.8
+		# Высокий угловой демпфер = суставы не болтаются, тело не складывается резко.
+		pb.angular_damp = 5.0
+		# Корневую кость (Hips, без сустава) не трогаем — она база регдола.
+		if pb.joint_type == PhysicalBone3D.JOINT_TYPE_NONE:
+			continue
+		# Create Physical Skeleton делает PIN-суставы (точечные, БЕЗ угловых
+		# лимитов — оттого тело складывается само в себя). Меняем на CONE и
+		# ограничиваем размах, чтобы конечности не проходили сквозь тело.
+		pb.joint_type = PhysicalBone3D.JOINT_TYPE_CONE
+		pb.set("joint_constraints/swing_span", 45.0)
+		pb.set("joint_constraints/twist_span", 35.0)
+		pb.set("joint_constraints/bias", 0.3)
+		pb.set("joint_constraints/relaxation", 1.0)
+		pb.set("joint_constraints/softness", 0.8)
 
 # Тело разорвано взрывом: гасим регдол и прячем модель, дальше показываем только гибсы.
 func gib() -> void:
