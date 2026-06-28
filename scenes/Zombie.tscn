@@ -1,0 +1,28 @@
+[gd_scene format=3 uid="uid://7puyu0grl0iy"]
+
+[ext_resource type="PackedScene" uid="uid://cvhgoyn3o8t7f" path="res://zombie/ZombieIdle.glb" id="1_blicy"]
+
+[node name="ZombieIdle" unique_id=178024511 instance=ExtResource("1_blicy")]
+
+[node name="Skeleton3D" parent="Armature" parent_id_path=PackedInt32Array(310291567) index="0" unique_id=1728859461]
+bones/0/position = Vector3(-5.272086e-05, -0.040432528, -1.139678)
+bones/0/rotation = Quaternion(-0.6475473, -0.046278227, 0.0333906, 0.75988555)
+bones/1/rotation = Quaternion(-0.05152539, -0.012368556, 0.0039739213, 0.9985872)
+bones/2/rotation = Quaternion(-0.007756246, -0.009668663, 0.0018314535, 0.9999215)
+bones/3/rotation = Quaternion(-0.0077682906, -0.009537342, 0.001970754, 0.9999224)
+bones/4/rotation = Quaternion(0.028427163, 0.01822979, -0.012054462, 0.9993569)
+bones/5/rotation = Quaternion(0.010631915, 0.06616363, -0.010133816, 0.9977007)
+bones/7/rotation = Quaternion(-0.59115595, -0.42147124, 0.5270954, -0.4416641)
+bones/8/rotation = Quaternion(0.38839734, 0.49109322, 0.2653843, 0.73317546)
+bones/9/rotation = Quaternion(-0.06397652, 0.0108941225, 0.25859675, 0.9638029)
+bones/11/rotation = Quaternion(0.56361586, -0.44086248, 0.55626976, 0.4225416)
+bones/12/rotation = Quaternion(0.41624263, -0.40934584, -0.27134115, 0.76521367)
+bones/13/rotation = Quaternion(-0.033410832, -0.010847595, -0.21504498, 0.9759723)
+bones/15/rotation = Quaternion(0.14951894, 0.16967878, 0.97158355, -0.06984688)
+bones/16/rotation = Quaternion(-0.14905949, -0.055963933, 0.030313615, 0.9867778)
+bones/17/rotation = Quaternion(0.5807628, 0.002545407, -0.071358085, 0.8109354)
+bones/18/rotation = Quaternion(0.18996121, 0.0011822506, 0.0048110806, 0.98177916)
+bones/20/rotation = Quaternion(-0.09979281, 0.14745422, 0.98391354, 0.014589269)
+bones/21/rotation = Quaternion(-0.11272578, 0.08230684, -0.045990568, 0.9891427)
+bones/22/rotation = Quaternion(0.56154853, 0.010142602, 0.043181818, 0.826254)
+bones/23/rotation = Quaternion(0.19709797, -0.0016635056, -0.007178484, 0.9803561)
