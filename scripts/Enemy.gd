@@ -6,7 +6,7 @@ signal reset_done
 
 # Zone -> PhysicalBone3D (позиция для спавна оторванных конечностей)
 var zone_nodes: Dictionary = {}
-# Zone -> Area3D hitbox (из сцены MaleBody.tscn)
+# Zone -> Area3D hitbox (из сцены Zombie.tscn)
 var hitbox_nodes: Dictionary = {}
 # Zone -> MeshInstance3D debug overlay
 var hitbox_debug_nodes: Dictionary = {}
@@ -27,16 +27,16 @@ var _simulator: PhysicalBoneSimulator3D
 var _limb_hider: LimbHider
 
 const ZONE_TO_BONE := {
-	"head":        "Neck",
-	"torso":       "Torso",
-	"upper_arm_L": "UpperArm.L",
-	"lower_arm_L": "LowerArm.L",
-	"upper_arm_R": "UpperArm.R",
-	"lower_arm_R": "LowerArm.R",
-	"thigh_L":     "UpperLeg.L",
-	"shin_L":      "LowerLeg.L",
-	"thigh_R":     "UpperLeg.R",
-	"shin_R":      "LowerLeg.R",
+	"head":        "mixamorig_Head",
+	"torso":       "mixamorig_Spine1",
+	"upper_arm_L": "mixamorig_LeftArm",
+	"lower_arm_L": "mixamorig_LeftForeArm",
+	"upper_arm_R": "mixamorig_RightArm",
+	"lower_arm_R": "mixamorig_RightForeArm",
+	"thigh_L":     "mixamorig_LeftUpLeg",
+	"shin_L":      "mixamorig_LeftLeg",
+	"thigh_R":     "mixamorig_RightUpLeg",
+	"shin_R":      "mixamorig_RightLeg",
 }
 
 const ZONE_COLORS := {
@@ -71,7 +71,7 @@ func _ready() -> void:
 	_collect_hitboxes_from_model()
 
 func _attach_model() -> void:
-	var packed: PackedScene = load("res://scenes/MaleBody.tscn") as PackedScene
+	var packed: PackedScene = load("res://scenes/Zombie.tscn") as PackedScene
 	if packed == null:
 		return
 	var inst := packed.instantiate()
@@ -79,7 +79,6 @@ func _attach_model() -> void:
 	if _glb_root == null:
 		inst.queue_free()
 		return
-	_glb_root.scale = Vector3.ONE * 0.83
 	add_child(_glb_root)
 	_skeleton = _find_skeleton(_glb_root)
 	_simulator = _find_simulator(_glb_root)
@@ -90,10 +89,8 @@ func _attach_model() -> void:
 		_limb_hider = LimbHider.new()
 		_limb_hider.name = "LimbHider"
 		_skeleton.add_child(_limb_hider)
-	var skin_mat := StandardMaterial3D.new()
-	skin_mat.albedo_color = Color(0.78, 0.62, 0.51)
-	skin_mat.roughness = 0.85
-	_apply_material_recursive(_glb_root, skin_mat)
+	# Материал не трогаем — у зомби из Mixamo своя текстура (раньше бежевый
+	# skin_mat нужен был для безтекстурного Male.obj).
 
 func _collect_hitboxes_from_model() -> void:
 	if _glb_root == null:
