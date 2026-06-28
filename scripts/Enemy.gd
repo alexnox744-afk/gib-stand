@@ -96,6 +96,10 @@ func _attach_model() -> void:
 	# Материал не трогаем — у зомби из Mixamo своя текстура (раньше бежевый
 	# skin_mat нужен был для безтекстурного Male.obj).
 	_anim_player = _find_animation_player(_glb_root)
+	if _anim_player != null:
+		# Кроссфейд между клипами — переходы idle/walk/attack плавные, без снэпа.
+		_anim_player.playback_default_blend_time = 0.2
+		_anim_player.animation_finished.connect(_on_anim_finished)
 	_resolve_animations()
 	_play_idle()
 
@@ -227,6 +231,11 @@ func play_attack() -> void:
 
 func play_idle() -> void:
 	if not is_ragdoll and not health.is_dead:
+		_play_idle()
+
+# Незациклическая атака отыграла — плавно возвращаемся в стойку.
+func _on_anim_finished(anim_name: String) -> void:
+	if anim_name == _anim_attack and not is_ragdoll and not health.is_dead:
 		_play_idle()
 
 func _apply_material_recursive(node: Node, mat: StandardMaterial3D) -> void:
