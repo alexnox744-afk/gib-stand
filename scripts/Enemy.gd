@@ -26,6 +26,9 @@ var _skeleton: Skeleton3D
 var _simulator: PhysicalBoneSimulator3D
 var _limb_hider: LimbHider
 var _anim_player: AnimationPlayer
+var _anim_idle: String = ""
+var _anim_walk: String = ""
+var _anim_attack: String = ""
 
 const ZONE_TO_BONE := {
 	"head":        "mixamorig_Head",
@@ -93,6 +96,7 @@ func _attach_model() -> void:
 	# Материал не трогаем — у зомби из Mixamo своя текстура (раньше бежевый
 	# skin_mat нужен был для безтекстурного Male.obj).
 	_anim_player = _find_animation_player(_glb_root)
+	_resolve_animations()
 	_play_idle()
 
 func _collect_hitboxes_from_model() -> void:
@@ -185,18 +189,41 @@ func _find_animation_player(node: Node) -> AnimationPlayer:
 			return found
 	return null
 
-# Запускаем простой/первый клип (idle из ZombieIdle.glb), зацикленный.
-func _play_idle() -> void:
+# Раскладываем клипы по ролям: walk/attack лежат в одноимённых библиотеках
+# ("ZombieWalking/...", "ZombieAttack/..."), idle — глобальный (без префикса).
+func _resolve_animations() -> void:
+	_anim_idle = ""
+	_anim_walk = ""
+	_anim_attack = ""
 	if _anim_player == null:
 		return
-	var list := _anim_player.get_animation_list()
-	if list.is_empty():
+	for a in _anim_player.get_animation_list():
+		if a.contains("Walking"):
+			_anim_walk = a
+		elif a.contains("Attack"):
+			_anim_attack = a
+		else:
+			_anim_idle = a
+
+func _play_clip(clip: String, loop: bool) -> void:
+	if _anim_player == null or clip == "" or not _anim_player.has_animation(clip):
 		return
-	var clip: String = list[0]
 	var anim := _anim_player.get_animation(clip)
 	if anim != null:
-		anim.loop_mode = Animation.LOOP_LINEAR
+		anim.loop_mode = Animation.LOOP_LINEAR if loop else Animation.LOOP_NONE
 	_anim_player.play(clip)
+
+func _play_idle() -> void:
+	_play_clip(_anim_idle, true)
+
+# Публичные переключатели — пригодятся будущему ИИ.
+func play_walk() -> void:
+	if not is_ragdoll and not health.is_dead:
+		_play_clip(_anim_walk, true)
+
+func play_attack() -> void:
+	if not is_ragdoll and not health.is_dead:
+		_play_clip(_anim_attack, false)
 
 func _apply_material_recursive(node: Node, mat: StandardMaterial3D) -> void:
 	if node is MeshInstance3D:
