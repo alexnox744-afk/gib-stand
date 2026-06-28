@@ -404,11 +404,15 @@ func _tune_ragdoll_weight() -> void:
 		if pb.joint_type == PhysicalBone3D.JOINT_TYPE_NONE:
 			continue
 		# Create Physical Skeleton делает PIN-суставы (точечные, БЕЗ угловых
-		# лимитов — оттого тело складывается само в себя). Меняем на CONE и
-		# ограничиваем размах, чтобы конечности не проходили сквозь тело.
+		# лимитов — оттого тело складывается). Меняем на CONE с лимитом размаха.
+		# Позвоночник из 3 сегментов (Spine/Spine1/Spine2) + Neck превращает торс
+		# в гармошку — их суставы зажимаем почти намертво, корпус держится жёстко;
+		# конечностям оставляем нормальную подвижность.
+		var bn := pb.bone_name
+		var rigid := bn.contains("Spine") or bn.contains("Neck")
 		pb.joint_type = PhysicalBone3D.JOINT_TYPE_CONE
-		pb.set("joint_constraints/swing_span", 45.0)
-		pb.set("joint_constraints/twist_span", 35.0)
+		pb.set("joint_constraints/swing_span", 6.0 if rigid else 45.0)
+		pb.set("joint_constraints/twist_span", 6.0 if rigid else 35.0)
 		pb.set("joint_constraints/bias", 0.3)
 		pb.set("joint_constraints/relaxation", 1.0)
 		pb.set("joint_constraints/softness", 0.8)
