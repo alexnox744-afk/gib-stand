@@ -275,6 +275,18 @@ func _build_ui() -> void:
 	reset_button.pressed.connect(_on_reset)
 	debug_vb.add_child(reset_button)
 
+	# Временные кнопки проверки анимаций (idle/walk/attack).
+	var anim_hb := HBoxContainer.new()
+	debug_vb.add_child(anim_hb)
+	var anim_label := Label.new()
+	anim_label.text = "Anim:"
+	anim_hb.add_child(anim_label)
+	for spec in [["Idle", "idle"], ["Walk", "walk"], ["Attack", "attack"]]:
+		var ab := Button.new()
+		ab.text = spec[0]
+		ab.pressed.connect(_on_anim_button.bind(spec[1]))
+		anim_hb.add_child(ab)
+
 	hitbox_toggle = CheckButton.new()
 	hitbox_toggle.text = "Show Hitboxes"
 	hitbox_toggle.toggled.connect(_on_hitbox_toggle)
@@ -777,6 +789,17 @@ func _on_reset() -> void:
 	gibs_pool.clear_all()
 	hit_info_panel.update_hit({})
 	_on_hitbox_toggle(show_hitboxes)
+
+func _on_anim_button(which: String) -> void:
+	if enemy == null:
+		return
+	match which:
+		"idle":
+			enemy.play_idle()
+		"walk":
+			enemy.play_walk()
+		"attack":
+			enemy.play_attack()
 
 func _on_hitbox_toggle(enabled: bool) -> void:
 	show_hitboxes = enabled

@@ -225,6 +225,10 @@ func play_attack() -> void:
 	if not is_ragdoll and not health.is_dead:
 		_play_clip(_anim_attack, false)
 
+func play_idle() -> void:
+	if not is_ragdoll and not health.is_dead:
+		_play_idle()
+
 func _apply_material_recursive(node: Node, mat: StandardMaterial3D) -> void:
 	if node is MeshInstance3D:
 		(node as MeshInstance3D).material_override = mat
