@@ -1,15 +1,15 @@
 [remap]
 
-importer="scene"
+importer="animation_library"
 importer_version=1
-type="PackedScene"
+type="AnimationLibrary"
 uid="uid://cloahicqn13ho"
-path="res://.godot/imported/ZombieAttack.glb-da2b9f968d27745614cff4d3740a62a2.scn"
+path="res://.godot/imported/ZombieAttack.glb-da2b9f968d27745614cff4d3740a62a2.res"
 
 [deps]
 
 source_file="res://zombie/ZombieAttack.glb"
-dest_files=["res://.godot/imported/ZombieAttack.glb-da2b9f968d27745614cff4d3740a62a2.scn"]
+dest_files=["res://.godot/imported/ZombieAttack.glb-da2b9f968d27745614cff4d3740a62a2.res"]
 
 [params]
 
