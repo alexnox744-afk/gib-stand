@@ -408,8 +408,8 @@ func _tune_ragdoll_weight() -> void:
 		# Позвоночник из 3 сегментов (Spine/Spine1/Spine2) + Neck превращает торс
 		# в гармошку — их суставы зажимаем почти намертво, корпус держится жёстко;
 		# конечностям оставляем нормальную подвижность.
-		var bn := pb.bone_name
-		var rigid := bn.contains("Spine") or bn.contains("Neck")
+		var bn: String = pb.bone_name
+		var rigid: bool = bn.contains("Spine") or bn.contains("Neck")
 		pb.joint_type = PhysicalBone3D.JOINT_TYPE_CONE
 		pb.set("joint_constraints/swing_span", 6.0 if rigid else 45.0)
 		pb.set("joint_constraints/twist_span", 6.0 if rigid else 35.0)
