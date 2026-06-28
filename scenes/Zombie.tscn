@@ -242,6 +242,46 @@ height = 0.25105172
 radius = 0.010167495
 height = 0.10167495
 
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hb_mixamorig_Spine1"]
+radius = 0.013402501
+height = 0.13402501
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hb_mixamorig_Head"]
+radius = 0.028226342
+height = 0.28226343
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hb_mixamorig_LeftArm"]
+radius = 0.026587546
+height = 0.26587546
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hb_mixamorig_LeftForeArm"]
+radius = 0.029053863
+height = 0.29053864
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hb_mixamorig_RightArm"]
+radius = 0.026380423
+height = 0.26380423
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hb_mixamorig_RightForeArm"]
+radius = 0.029038992
+height = 0.29038993
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hb_mixamorig_LeftUpLeg"]
+radius = 0.048912346
+height = 0.48912346
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hb_mixamorig_LeftLeg"]
+radius = 0.04995071
+height = 0.4995071
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hb_mixamorig_RightUpLeg"]
+radius = 0.048912983
+height = 0.48912984
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hb_mixamorig_RightLeg"]
+radius = 0.049818836
+height = 0.49818838
+
 [node name="ZombieIdle" unique_id=178024511 instance=ExtResource("1_blicy")]
 
 [node name="PhysicalBoneSimulator3D" type="PhysicalBoneSimulator3D" parent="Armature/Skeleton3D" parent_id_path=PackedInt32Array(1728859461) index="1" unique_id=772350103]
@@ -1087,7 +1127,7 @@ metadata/zone = "torso"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_Spine1/Hitbox" index="0"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
-shape = SubResource("CapsuleShape3D_q1156")
+shape = SubResource("CapsuleShape3D_hb_mixamorig_Spine1")
 
 [node name="Hitbox" type="Area3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_Head" index="1"]
 collision_layer = 2
@@ -1096,7 +1136,7 @@ metadata/zone = "head"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_Head/Hitbox" index="0"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
-shape = SubResource("CapsuleShape3D_ck1my")
+shape = SubResource("CapsuleShape3D_hb_mixamorig_Head")
 
 [node name="Hitbox" type="Area3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_LeftArm" index="1"]
 collision_layer = 2
@@ -1105,7 +1145,7 @@ metadata/zone = "upper_arm_L"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_LeftArm/Hitbox" index="0"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
-shape = SubResource("CapsuleShape3D_g3o4q")
+shape = SubResource("CapsuleShape3D_hb_mixamorig_LeftArm")
 
 [node name="Hitbox" type="Area3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_LeftForeArm" index="1"]
 collision_layer = 2
@@ -1114,7 +1154,7 @@ metadata/zone = "lower_arm_L"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_LeftForeArm/Hitbox" index="0"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
-shape = SubResource("CapsuleShape3D_imxpd")
+shape = SubResource("CapsuleShape3D_hb_mixamorig_LeftForeArm")
 
 [node name="Hitbox" type="Area3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_RightArm" index="1"]
 collision_layer = 2
@@ -1123,7 +1163,7 @@ metadata/zone = "upper_arm_R"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_RightArm/Hitbox" index="0"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
-shape = SubResource("CapsuleShape3D_4e2x7")
+shape = SubResource("CapsuleShape3D_hb_mixamorig_RightArm")
 
 [node name="Hitbox" type="Area3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_RightForeArm" index="1"]
 collision_layer = 2
@@ -1132,7 +1172,7 @@ metadata/zone = "lower_arm_R"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_RightForeArm/Hitbox" index="0"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
-shape = SubResource("CapsuleShape3D_mb52o")
+shape = SubResource("CapsuleShape3D_hb_mixamorig_RightForeArm")
 
 [node name="Hitbox" type="Area3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_LeftUpLeg" index="1"]
 collision_layer = 2
@@ -1141,7 +1181,7 @@ metadata/zone = "thigh_L"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_LeftUpLeg/Hitbox" index="0"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
-shape = SubResource("CapsuleShape3D_0j0pj")
+shape = SubResource("CapsuleShape3D_hb_mixamorig_LeftUpLeg")
 
 [node name="Hitbox" type="Area3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_LeftLeg" index="1"]
 collision_layer = 2
@@ -1150,7 +1190,7 @@ metadata/zone = "shin_L"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_LeftLeg/Hitbox" index="0"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
-shape = SubResource("CapsuleShape3D_pqqj5")
+shape = SubResource("CapsuleShape3D_hb_mixamorig_LeftLeg")
 
 [node name="Hitbox" type="Area3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_RightUpLeg" index="1"]
 collision_layer = 2
@@ -1159,7 +1199,7 @@ metadata/zone = "thigh_R"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_RightUpLeg/Hitbox" index="0"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
-shape = SubResource("CapsuleShape3D_4nnlg")
+shape = SubResource("CapsuleShape3D_hb_mixamorig_RightUpLeg")
 
 [node name="Hitbox" type="Area3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_RightLeg" index="1"]
 collision_layer = 2
@@ -1168,4 +1208,4 @@ metadata/zone = "shin_R"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Armature/Skeleton3D/PhysicalBoneSimulator3D/Physical Bone mixamorig_RightLeg/Hitbox" index="0"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
-shape = SubResource("CapsuleShape3D_xtes1")
+shape = SubResource("CapsuleShape3D_hb_mixamorig_RightLeg")
