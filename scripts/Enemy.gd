@@ -410,12 +410,15 @@ func _tune_ragdoll_weight() -> void:
 		# конечностям оставляем нормальную подвижность.
 		var bn: String = pb.bone_name
 		var rigid: bool = bn.contains("Spine") or bn.contains("Neck")
+		# Локти/колени (ForeArm, LowerLeg=Leg без UpLeg) — шарниры, вдоль оси НЕ
+		# скручиваются; плечи/бёдра — немного можно; позвоночник зажат.
+		var elbow_knee: bool = bn.contains("ForeArm") or (bn.contains("Leg") and not bn.contains("UpLeg"))
+		var twist: float = 6.0 if rigid else (2.0 if elbow_knee else 12.0)
 		pb.joint_type = PhysicalBone3D.JOINT_TYPE_CONE
-		# ВАЖНО: на Jolt у конусного сустава работают ТОЛЬКО swing/twist span;
-		# bias/relaxation/softness Jolt игнорирует (спамит варнингами). Поэтому
-		# жёсткость задаём углами размаха + angular_damp кости.
+		# На Jolt у конусного сустава работают ТОЛЬКО swing/twist span (bias/
+		# relaxation/softness он игнорирует). Жёсткость — углами + angular_damp.
 		pb.set("joint_constraints/swing_span", 6.0 if rigid else 30.0)
-		pb.set("joint_constraints/twist_span", 6.0 if rigid else 20.0)
+		pb.set("joint_constraints/twist_span", twist)
 
 # Тело разорвано взрывом: гасим регдол и прячем модель, дальше показываем только гибсы.
 func gib() -> void:
