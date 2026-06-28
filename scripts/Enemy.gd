@@ -208,6 +208,9 @@ func _resolve_animations() -> void:
 	# корня, чтобы зомби анимировался НА МЕСТЕ — перемещение сделает будущий ИИ.
 	if _anim_walk != "":
 		_strip_root_motion(_anim_walk)
+		# ZombieWalking.glb экспортнут с иной ориентацией корня (rest Hips 0° vs
+		# -90° у idle/attack) — тело валится на 90°. Доворачиваем Hips клипа.
+		_reorient_root(_anim_walk, Quaternion(Vector3.RIGHT, -PI / 2.0))
 	if _anim_attack != "":
 		_strip_root_motion(_anim_attack)
 
@@ -231,6 +234,23 @@ func _strip_root_motion(clip: String) -> void:
 		for ki in key_count:
 			var v: Vector3 = anim.track_get_key_value(ti, ki)
 			anim.track_set_key_value(ti, ki, Vector3(first.x, v.y, first.z))
+
+# Доворачиваем корневую кость (Hips) клипа на компенсирующий поворот — лечит
+# рассинхрон ориентации скелета между по-разному экспортированными glb.
+func _reorient_root(clip: String, comp: Quaternion) -> void:
+	if _anim_player == null:
+		return
+	var anim := _anim_player.get_animation(clip)
+	if anim == null:
+		return
+	for ti in anim.get_track_count():
+		if anim.track_get_type(ti) != Animation.TYPE_ROTATION_3D:
+			continue
+		if not str(anim.track_get_path(ti)).contains("Hips"):
+			continue
+		for ki in anim.track_get_key_count(ti):
+			var q: Quaternion = anim.track_get_key_value(ti, ki)
+			anim.track_set_key_value(ti, ki, q * comp)
 
 func _play_clip(clip: String, loop: bool) -> void:
 	if _anim_player == null or clip == "" or not _anim_player.has_animation(clip):
