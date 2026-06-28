@@ -204,6 +204,33 @@ func _resolve_animations() -> void:
 			_anim_attack = a
 		else:
 			_anim_idle = a
+	# Mixamo-клипы едут вперёд (root motion на кости Hips). Фиксируем горизонталь
+	# корня, чтобы зомби анимировался НА МЕСТЕ — перемещение сделает будущий ИИ.
+	if _anim_walk != "":
+		_strip_root_motion(_anim_walk)
+	if _anim_attack != "":
+		_strip_root_motion(_anim_attack)
+
+# Зануляем горизонтальное смещение корневой кости в клипе: X/Z держим на
+# значении первого кадра, вертикальный bob (Y) оставляем для живости.
+func _strip_root_motion(clip: String) -> void:
+	if _anim_player == null:
+		return
+	var anim := _anim_player.get_animation(clip)
+	if anim == null:
+		return
+	for ti in anim.get_track_count():
+		if anim.track_get_type(ti) != Animation.TYPE_POSITION_3D:
+			continue
+		if not str(anim.track_get_path(ti)).contains("Hips"):
+			continue
+		var key_count := anim.track_get_key_count(ti)
+		if key_count == 0:
+			continue
+		var first: Vector3 = anim.track_get_key_value(ti, 0)
+		for ki in key_count:
+			var v: Vector3 = anim.track_get_key_value(ti, ki)
+			anim.track_set_key_value(ti, ki, Vector3(first.x, v.y, first.z))
 
 func _play_clip(clip: String, loop: bool) -> void:
 	if _anim_player == null or clip == "" or not _anim_player.has_animation(clip):
