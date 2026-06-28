@@ -411,11 +411,13 @@ func _tune_ragdoll_weight() -> void:
 		var bn: String = pb.bone_name
 		var rigid: bool = bn.contains("Spine") or bn.contains("Neck")
 		pb.joint_type = PhysicalBone3D.JOINT_TYPE_CONE
-		pb.set("joint_constraints/swing_span", 6.0 if rigid else 45.0)
-		pb.set("joint_constraints/twist_span", 6.0 if rigid else 35.0)
-		pb.set("joint_constraints/bias", 0.3)
-		pb.set("joint_constraints/relaxation", 1.0)
-		pb.set("joint_constraints/softness", 0.8)
+		pb.set("joint_constraints/swing_span", 6.0 if rigid else 30.0)
+		pb.set("joint_constraints/twist_span", 6.0 if rigid else 20.0)
+		# Меньше softness и выше bias = сустав жёстче держит форму, конечности
+		# не висят тряпкой.
+		pb.set("joint_constraints/bias", 0.6)
+		pb.set("joint_constraints/relaxation", 2.0)
+		pb.set("joint_constraints/softness", 0.25)
 
 # Тело разорвано взрывом: гасим регдол и прячем модель, дальше показываем только гибсы.
 func gib() -> void:
