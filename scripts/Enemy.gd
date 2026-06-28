@@ -25,6 +25,7 @@ var _glb_root: Node3D
 var _skeleton: Skeleton3D
 var _simulator: PhysicalBoneSimulator3D
 var _limb_hider: LimbHider
+var _anim_player: AnimationPlayer
 
 const ZONE_TO_BONE := {
 	"head":        "mixamorig_Head",
@@ -91,6 +92,8 @@ func _attach_model() -> void:
 		_skeleton.add_child(_limb_hider)
 	# Материал не трогаем — у зомби из Mixamo своя текстура (раньше бежевый
 	# skin_mat нужен был для безтекстурного Male.obj).
+	_anim_player = _find_animation_player(_glb_root)
+	_play_idle()
 
 func _collect_hitboxes_from_model() -> void:
 	if _glb_root == null:
@@ -172,6 +175,28 @@ func _find_skeleton(node: Node) -> Skeleton3D:
 		if found != null:
 			return found
 	return null
+
+func _find_animation_player(node: Node) -> AnimationPlayer:
+	if node is AnimationPlayer:
+		return node as AnimationPlayer
+	for child in node.get_children():
+		var found := _find_animation_player(child)
+		if found != null:
+			return found
+	return null
+
+# Запускаем простой/первый клип (idle из ZombieIdle.glb), зацикленный.
+func _play_idle() -> void:
+	if _anim_player == null:
+		return
+	var list := _anim_player.get_animation_list()
+	if list.is_empty():
+		return
+	var clip: String = list[0]
+	var anim := _anim_player.get_animation(clip)
+	if anim != null:
+		anim.loop_mode = Animation.LOOP_LINEAR
+	_anim_player.play(clip)
 
 func _apply_material_recursive(node: Node, mat: StandardMaterial3D) -> void:
 	if node is MeshInstance3D:
@@ -382,6 +407,9 @@ func _on_died(overkill: bool) -> void:
 func _do_ragdoll_fall() -> void:
 	if _simulator == null:
 		return
+	# Глушим анимацию — иначе она и физика дерутся за позу скелета.
+	if _anim_player != null:
+		_anim_player.stop()
 	_simulator.physical_bones_start_simulation()
 
 # Утяжеляем кости регдола: в сцене масса не задана (дефолт 1 — «пушинка»).
@@ -444,6 +472,9 @@ func reset() -> void:
 	position = Vector3.ZERO
 	visible = true
 	is_ragdoll = false
+
+	# Новый враг снова «дышит» idle-анимацией.
+	_play_idle()
 
 	health.reset()
 	reset_done.emit()
